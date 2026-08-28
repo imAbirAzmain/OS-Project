@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mini Cloud - Access Gateway</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #1a1a2e; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #16213e; padding: 30px; border-radius: 10px; width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h2 { text-align: center; color: #00fff5; margin-bottom: 20px; }
+        input { width: 100%; padding: 10px; margin: 8px 0; border: none; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #0f3460; color: #00fff5; border: 1px solid #00fff5; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        button:hover { background: #00fff5; color: #16213e; }
+        .switch { text-align: center; margin-top: 15px; font-size: 13px; color: #a2a8d3; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2 id="title">Cloud Gateway Login</h2>
+        <input type="text" id="username" placeholder="User ID / Username">
+        <input type="password" id="password" placeholder="Password">
+        
+        <button onclick="submitAuth()" id="btn-submit">Log In</button>
+        <div class="switch" onclick="toggleMode()" id="switch-text">Need an account? Register here</div>
+    </div>
+
+    <script>
+        let isLogin = true;
+
+        function toggleMode() {
+            isLogin = !isLogin;
+            document.getElementById('title').innerText = isLogin ? "Cloud Gateway Login" : "Create Cloud Account";
+            document.getElementById('btn-submit').innerText = isLogin ? "Log In" : "Register Account";
+            document.getElementById('switch-text').innerText = isLogin ? "Need an account? Register here" : "Already have an account? Log in";
+        }
+
+        async function submitAuth() {
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+
+            if (!user || !pass) { alert("Please enter User ID and Password."); return; }
+
+            const endpoint = isLogin ? `/user/login?user=${user}&pass=${pass}` : `/user/register?user=${user}&pass=${pass}`;
+            const res = await fetch(endpoint);
+            const data = await res.json();
+
+            if (res.ok && data.token) {
+                localStorage.setItem('cloud_token', data.token);
+                localStorage.setItem('cloud_user', user);
+                window.location.href = `/index.html?token=${data.token}`;
+            } else {
+                alert(data.message || "Authentication failed.");
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+help
+show files
+cloud status
+help
+help
+help
+help
+help
+show files
+help
+show files
+help
+histoey
+help
+show files
+cloud
+cloud start
+cloud status
+cloud stop
+exit
+help
+show files
+cloud
+cloud start
+where am i
+go ..
+cd cloudion
+go cloudion
+showfiles
+show files
+go Abir
+go storage
+go Abir
+show files
+go ~
+cloud stop
+exit
+help
+version
+where am i
+cloud start
+cloud help
+cloud logs
+cloud info
+cloud status
+cloud stop
+cloud status
+exit
+help
+version
+where am i
+show files
+cloud help
+cloud start
+cloud status
+cloud stop
+exit
