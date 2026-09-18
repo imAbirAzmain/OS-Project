@@ -9,6 +9,10 @@ AZTERM_VERSION="2.0"
 AZTERM_PROMPT="az> "
 AZTERM_TITLE="AzTerm v2"
 
+# Ensure UTF-8 locale for accurate Unicode string formatting
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+export LANG="${LANG:-en_US.UTF-8}"
+
 # Dark terminal theme palette
 COLOR_RESET=$'\033[0m'
 COLOR_BLACK=$'\033[30m'

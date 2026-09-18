@@ -125,3 +125,10 @@ show files
 open abir.az
 go bijoy
 open test.txt
+help
+cloud
+cloud start
+cloud restart
+cloud status
+cloud stop
+exit

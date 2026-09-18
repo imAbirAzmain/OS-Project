@@ -130,17 +130,27 @@ cloudion_run_kv()
 }
 
 # ---------------------------------------------------------------------------
+# Print a standard horizontal separator inside the Cloudion box.
+# ---------------------------------------------------------------------------
+cloudion_box_separator()
+{
+    printf '%b' "${COLOR_YELLOW}"
+    printf '╠══════════════════════════════════════════╣\n'
+    printf '%b' "${COLOR_RESET}"
+}
+
+# ---------------------------------------------------------------------------
 # Print the standard AzTerm-style Cloudion box header.
 # ---------------------------------------------------------------------------
 cloudion_box_header()
 {
     local TITLE="$1"
-    printf '%b' "${COLOR_YELLOW}"
     printf '\n'
+    printf '%b' "${COLOR_YELLOW}"
     printf '╔══════════════════════════════════════════╗\n'
-    printf '║  %-40s║\n' "$TITLE"
-    printf '╠══════════════════════════════════════════╣\n'
     printf '%b' "${COLOR_RESET}"
+    cloudion_box_line "$TITLE" "${COLOR_YELLOW}"
+    cloudion_box_separator
 }
 
 # ---------------------------------------------------------------------------
@@ -155,15 +165,64 @@ cloudion_box_footer()
 }
 
 # ---------------------------------------------------------------------------
-# Print a labelled row inside the box.
+# Print a full-width line inside the box (padded to 40 columns + 2 leading spaces).
+# ---------------------------------------------------------------------------
+cloudion_box_line()
+{
+    local TEXT="$1"
+    local TEXT_COLOR="${2:-$COLOR_WHITE}"
+
+    if (( $(azterm_vis_len "$TEXT") > 40 )); then
+        TEXT="$(azterm_trim_text "$TEXT" 40)"
+    fi
+
+    local vlen
+    vlen="$(azterm_vis_len "$TEXT")"
+    local pad=$(( 40 - vlen ))
+    (( pad < 0 )) && pad=0
+    local spaces="$(azterm_pad_spaces "$pad")"
+
+    printf '%b║%b  %b%s%b%s%b║%b\n' \
+        "${COLOR_YELLOW}" "${COLOR_RESET}" \
+        "$TEXT_COLOR" "$TEXT" "${COLOR_RESET}" "$spaces" \
+        "${COLOR_YELLOW}" "${COLOR_RESET}"
+}
+
+# ---------------------------------------------------------------------------
+# Print a labelled row inside the box (16-col label, 22-col value).
+# Total inner width: 2 + 16 + 2 + 22 = 42 columns, perfectly matching 42 ═.
 # ---------------------------------------------------------------------------
 cloudion_box_row()
 {
     local LABEL="$1"
     local VALUE="$2"
-    printf '%b' "${COLOR_WHITE}"
-    printf '║  %-14s: %-23s║\n' "$LABEL" "$VALUE"
-    printf '%b' "${COLOR_RESET}"
+    local VAL_COLOR="${3:-$COLOR_WHITE}"
+
+    if (( $(azterm_vis_len "$LABEL") > 16 )); then
+        LABEL="$(azterm_trim_text "$LABEL" 16)"
+    fi
+    if (( $(azterm_vis_len "$VALUE") > 22 )); then
+        VALUE="$(azterm_trim_text "$VALUE" 22)"
+    fi
+
+    local llen
+    llen="$(azterm_vis_len "$LABEL")"
+    local lpad=$(( 16 - llen ))
+    (( lpad < 0 )) && lpad=0
+
+    local vlen
+    vlen="$(azterm_vis_len "$VALUE")"
+    local vpad=$(( 22 - vlen ))
+    (( vpad < 0 )) && vpad=0
+
+    local lspaces="$(azterm_pad_spaces "$lpad")"
+    local vspaces="$(azterm_pad_spaces "$vpad")"
+
+    printf '%b║%b  %b%s%s%b: %b%s%b%s%b║%b\n' \
+        "${COLOR_YELLOW}" "${COLOR_RESET}" \
+        "${COLOR_WHITE}" "$LABEL" "$lspaces" "${COLOR_WHITE}" \
+        "$VAL_COLOR" "$VALUE" "${COLOR_RESET}" "$vspaces" \
+        "${COLOR_YELLOW}" "${COLOR_RESET}"
 }
 
 # ---------------------------------------------------------------------------
@@ -182,16 +241,14 @@ cloudion_start()
     cloudion_box_header "CLOUDION — START"
 
     if [[ "$_CK_STATUS" == "SUCCESS" ]]; then
-        cloudion_box_row "Status"  "STARTED ✓"
+        cloudion_box_row "Status"  "STARTED ✓" "${COLOR_SUCCESS}"
         [[ -n "$_CK_PID" ]] && cloudion_box_row "PID"     "$_CK_PID"
         cloudion_box_row "Port"    "4000"
         cloudion_box_row "URL"     "http://localhost:4000"
         cloudion_box_row "Logs"    "cloud logs"
     else
-        printf '%b' "${COLOR_RED}"
-        printf '║  %-40s║\n' "FAILED TO START"
-        printf '%b' "${COLOR_RESET}"
-        [[ -n "$_CK_MESSAGE" ]] && printf '║  %-40s║\n' "$_CK_MESSAGE"
+        cloudion_box_line "FAILED TO START" "${COLOR_RED}"
+        [[ -n "$_CK_MESSAGE" ]] && cloudion_box_line "$_CK_MESSAGE" "${COLOR_WHITE}"
     fi
 
     cloudion_box_footer
@@ -213,13 +270,11 @@ cloudion_stop()
     cloudion_box_header "CLOUDION — STOP"
 
     if [[ "$_CK_STATUS" == "SUCCESS" ]]; then
-        cloudion_box_row "Status"  "STOPPED ✓"
+        cloudion_box_row "Status"  "STOPPED ✓" "${COLOR_SUCCESS}"
         [[ -n "$_CK_MESSAGE" ]] && cloudion_box_row "Info" "$_CK_MESSAGE"
     else
-        printf '%b' "${COLOR_RED}"
-        printf '║  %-40s║\n' "FAILED TO STOP"
-        printf '%b' "${COLOR_RESET}"
-        [[ -n "$_CK_MESSAGE" ]] && printf '║  %-40s║\n' "$_CK_MESSAGE"
+        cloudion_box_line "FAILED TO STOP" "${COLOR_RED}"
+        [[ -n "$_CK_MESSAGE" ]] && cloudion_box_line "$_CK_MESSAGE" "${COLOR_WHITE}"
     fi
 
     cloudion_box_footer
@@ -241,14 +296,12 @@ cloudion_restart()
     cloudion_box_header "CLOUDION — RESTART"
 
     if [[ "$_CK_STATUS" == "SUCCESS" ]]; then
-        cloudion_box_row "Status"  "RESTARTED ✓"
+        cloudion_box_row "Status"  "RESTARTED ✓" "${COLOR_SUCCESS}"
         [[ -n "$_CK_PID" ]] && cloudion_box_row "PID"     "$_CK_PID"
         cloudion_box_row "Port"    "4000"
     else
-        printf '%b' "${COLOR_RED}"
-        printf '║  %-40s║\n' "FAILED TO RESTART"
-        printf '%b' "${COLOR_RESET}"
-        [[ -n "$_CK_MESSAGE" ]] && printf '║  %-40s║\n' "$_CK_MESSAGE"
+        cloudion_box_line "FAILED TO RESTART" "${COLOR_RED}"
+        [[ -n "$_CK_MESSAGE" ]] && cloudion_box_line "$_CK_MESSAGE" "${COLOR_WHITE}"
     fi
 
     cloudion_box_footer
@@ -267,25 +320,17 @@ cloudion_status()
 
     # Server state
     if [[ "$_CK_CLOUDION_STATE" == "RUNNING" ]]; then
-        printf '%b' "${COLOR_SUCCESS}"
-        printf '║  %-14s: %-23s║\n' "Server" "RUNNING ●"
-        printf '%b' "${COLOR_RESET}"
+        cloudion_box_row "Server" "RUNNING ●" "${COLOR_SUCCESS}"
         [[ -n "$_CK_PID" ]] && cloudion_box_row "PID" "$_CK_PID"
         cloudion_box_row "URL" "http://localhost:4000"
     else
-        printf '%b' "${COLOR_RED}"
-        printf '║  %-14s: %-23s║\n' "Server" "STOPPED ○"
-        printf '%b' "${COLOR_RESET}"
+        cloudion_box_row "Server" "STOPPED ○" "${COLOR_RED}"
     fi
 
     # Separator
-    printf '%b' "${COLOR_YELLOW}"
-    printf '╠══════════════════════════════════════════╣\n'
-    printf '%b' "${COLOR_DIM}"
-    printf '║  %-40s║\n' "System Metrics"
-    printf '%b' "${COLOR_YELLOW}"
-    printf '╠══════════════════════════════════════════╣\n'
-    printf '%b' "${COLOR_RESET}"
+    cloudion_box_separator
+    cloudion_box_line "System Metrics" "${COLOR_DIM}"
+    cloudion_box_separator
 
     # CPU
     if [[ -n "$_CK_CPU_USAGE_PERCENT" ]]; then
@@ -351,13 +396,9 @@ cloudion_storage()
     fi
 
     # Separator
-    printf '%b' "${COLOR_YELLOW}"
-    printf '╠══════════════════════════════════════════╣\n'
-    printf '%b' "${COLOR_DIM}"
-    printf '║  %-40s║\n' "Storage Areas"
-    printf '%b' "${COLOR_YELLOW}"
-    printf '╠══════════════════════════════════════════╣\n'
-    printf '%b' "${COLOR_RESET}"
+    cloudion_box_separator
+    cloudion_box_line "Storage Areas" "${COLOR_DIM}"
+    cloudion_box_separator
 
     [[ -n "$_CK_AREA_USERS_BYTES" ]]      && cloudion_box_row "Users (Personal)" "$(( _CK_AREA_USERS_BYTES / 1024 )) KB"
     [[ -n "$_CK_AREA_ONE_TO_ONE_BYTES" ]]  && cloudion_box_row "One-to-One"        "$(( _CK_AREA_ONE_TO_ONE_BYTES / 1024 )) KB"
@@ -367,13 +408,9 @@ cloudion_storage()
 
     # Per-user breakdown if available
     if [[ -n "$_CK_COUNT" && "$_CK_COUNT" -gt 0 ]]; then
-        printf '%b' "${COLOR_YELLOW}"
-        printf '╠══════════════════════════════════════════╣\n'
-        printf '%b' "${COLOR_DIM}"
-        printf '║  %-40s║\n' "User Usage Breakdown"
-        printf '%b' "${COLOR_YELLOW}"
-        printf '╠══════════════════════════════════════════╣\n'
-        printf '%b' "${COLOR_RESET}"
+        cloudion_box_separator
+        cloudion_box_line "User Usage Breakdown" "${COLOR_DIM}"
+        cloudion_box_separator
 
         local i
         for ((i = 0; i < _CK_COUNT; i++)); do
@@ -406,18 +443,14 @@ cloudion_logs()
     cloudion_box_header "CLOUDION — LOGS ($CAT)"
 
     if [[ "$_CK_STATUS" != "SUCCESS" ]]; then
-        printf '%b' "${COLOR_RED}"
-        printf '║  %-40s║\n' "Error reading logs"
-        [[ -n "$_CK_MESSAGE" ]] && printf '║  %-40s║\n' "$_CK_MESSAGE"
-        printf '%b' "${COLOR_RESET}"
+        cloudion_box_line "Error reading logs" "${COLOR_RED}"
+        [[ -n "$_CK_MESSAGE" ]] && cloudion_box_line "$_CK_MESSAGE" "${COLOR_RED}"
         cloudion_box_footer
         return 1
     fi
 
     if [[ "${_CK_COUNT:-0}" -eq 0 ]]; then
-        printf '%b' "${COLOR_DIM}"
-        printf '║  %-40s║\n' "No log entries yet."
-        printf '%b' "${COLOR_RESET}"
+        cloudion_box_line "No log entries yet." "${COLOR_DIM}"
         cloudion_box_footer
         return 0
     fi
@@ -458,23 +491,17 @@ cloudion_info()
     cloudion_box_row "Port"    "4000"
     cloudion_box_row "URL"     "http://localhost:4000"
 
-    printf '%b' "${COLOR_YELLOW}"
-    printf '╠══════════════════════════════════════════╣\n'
-    printf '%b' "${COLOR_DIM}"
-    printf '║  %-40s║\n' "Paths"
-    printf '%b' "${COLOR_YELLOW}"
-    printf '╠══════════════════════════════════════════╣\n'
-    printf '%b' "${COLOR_RESET}"
+    cloudion_box_separator
+    cloudion_box_line "Paths" "${COLOR_DIM}"
+    cloudion_box_separator
 
-    [[ -n "$_CK_PROJECT_ROOT" ]] && cloudion_box_row "Root"    "$_CK_PROJECT_ROOT"
-    [[ -n "$_CK_STORAGE_ROOT" ]] && cloudion_box_row "Storage" "$_CK_STORAGE_ROOT"
-    [[ -n "$_CK_LOGS_ROOT" ]]    && cloudion_box_row "Logs"    "$_CK_LOGS_ROOT"
-    [[ -n "$_CK_BACKUPS_ROOT" ]] && cloudion_box_row "Backups" "$_CK_BACKUPS_ROOT"
+    [[ -n "$_CK_PROJECT_ROOT" ]] && cloudion_box_row "Root"    "$(azterm_shorten_path "$_CK_PROJECT_ROOT" 22)"
+    [[ -n "$_CK_STORAGE_ROOT" ]] && cloudion_box_row "Storage" "$(azterm_shorten_path "$_CK_STORAGE_ROOT" 22)"
+    [[ -n "$_CK_LOGS_ROOT" ]]    && cloudion_box_row "Logs"    "$(azterm_shorten_path "$_CK_LOGS_ROOT" 22)"
+    [[ -n "$_CK_BACKUPS_ROOT" ]] && cloudion_box_row "Backups" "$(azterm_shorten_path "$_CK_BACKUPS_ROOT" 22)"
 
     if [[ -n "$_CK_SCRIPT_COUNT" || -n "$_CK_CLOUD_AREAS" ]]; then
-        printf '%b' "${COLOR_YELLOW}"
-        printf '╠══════════════════════════════════════════╣\n'
-        printf '%b' "${COLOR_RESET}"
+        cloudion_box_separator
         [[ -n "$_CK_SCRIPT_COUNT" ]] && cloudion_box_row "Scripts" "$_CK_SCRIPT_COUNT shell scripts"
         [[ -n "$_CK_CLOUD_AREAS" ]]  && cloudion_box_row "Areas"   "$_CK_CLOUD_AREAS"
     fi
@@ -482,7 +509,6 @@ cloudion_info()
     cloudion_box_footer
 }
 
-# ---------------------------------------------------------------------------
 # cloud help
 # ---------------------------------------------------------------------------
 cloudion_help()

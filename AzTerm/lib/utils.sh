@@ -97,13 +97,81 @@ azterm_repeat_char()
 ############################################################
 # Truncate text safely to fit inside a fixed-width column.
 ############################################################
+azterm_vis_len()
+{
+    local STR="$1"
+    local CLEAN
+    CLEAN=$(printf '%s' "$STR" | sed -E $'s/\[[0-9;]*[a-zA-Z]//g' | tr -d '\200-\277')
+    printf '%s' "${#CLEAN}"
+}
+
+############################################################
+# Generate exact space padding.
+############################################################
+azterm_pad_spaces()
+{
+    local COUNT="$1"
+    if (( COUNT > 0 )); then
+        printf '%*s' "$COUNT" ''
+    fi
+}
+
+############################################################
+# Shorten a filesystem path to fit inside a column cleanly.
+############################################################
+azterm_shorten_path()
+{
+    local P="$1"
+    local MAX="${2:-22}"
+
+    if [[ "$P" == "$HOME"* ]]; then
+        local T="~${P#$HOME}"
+        if (( ${#T} <= MAX )); then
+            printf '%s' "$T"
+            return 0
+        fi
+    fi
+
+    if (( ${#P} <= MAX )); then
+        printf '%s' "$P"
+        return 0
+    fi
+
+    local BASE PARENT SHORT
+    BASE="$(basename "$P")"
+    PARENT="$(basename "$(dirname "$P")")"
+    SHORT=".../$PARENT/$BASE"
+    if (( ${#SHORT} <= MAX )); then
+        printf '%s' "$SHORT"
+        return 0
+    fi
+
+    SHORT=".../$BASE"
+    if (( ${#SHORT} <= MAX )); then
+        printf '%s' "$SHORT"
+        return 0
+    fi
+
+    azterm_trim_text "$P" "$MAX"
+}
+
+############################################################
+# Truncate text safely to fit inside a fixed-width column.
+############################################################
 azterm_trim_text()
 {
     local TEXT="$1"
     local WIDTH="$2"
+    local VLEN
+    VLEN="$(azterm_vis_len "$TEXT")"
 
-    if [[ ${#TEXT} -le $WIDTH ]]; then
+    if (( VLEN <= WIDTH )); then
         printf '%s' "$TEXT"
+        return 0
+    fi
+
+    if (( WIDTH <= 1 )); then
+        printf '…'
         return 0
     fi
 
@@ -252,31 +320,20 @@ azterm_print_history_box()
     if (( LINE_COUNT == 0 )); then
 
         local EMPTY_MSG="No command history."
-        local EMPTY_WIDTH=$((BOX_WIDTH - 4))
+        local EMPTY_WIDTH=$((BOX_WIDTH - 2))
 
         if (( ${#EMPTY_MSG} > EMPTY_WIDTH )); then
             EMPTY_MSG="$(azterm_trim_text "$EMPTY_MSG" "$EMPTY_WIDTH")"
         fi
 
+        local pad=$(( EMPTY_WIDTH - ${#EMPTY_MSG} ))
+        (( pad < 0 )) && pad=0
+
         printf '%b' "${COLOR_WHITE}"
-
-        printf '║ %*s ║\n' \
-            "$((NO_WIDTH - 1))" ''
-
-        printf '║ %-*s ║\n' \
-            "$((CMD_WIDTH + 1))" \
-            "$EMPTY_MSG"
-
-        printf '║ %*s ║\n' \
-            "$((NO_WIDTH - 1))" ''
-
+        printf '║ %s%*s ║\n' "$EMPTY_MSG" "$pad" ''
         printf '%b' "${COLOR_YELLOW}"
-
-        printf '╚%s╝\n' \
-            "$(azterm_repeat_char '═' "$BOX_WIDTH")"
-
+        printf '╚%s╝\n' "$(azterm_repeat_char '═' "$BOX_WIDTH")"
         printf '%b' "${COLOR_RESET}"
-
         printf '\n'
 
         return 0
@@ -365,88 +422,58 @@ azterm_print_help_table()
         TERM_WIDTH=100
     fi
 
-    ########################################################
-    # Choose column widths based on terminal size.
-    #
-    # Command is intentionally wider because AzTerm has
-    # multi-word commands such as:
-    #
-    #   show files
-    #   make folder
-    #   write script
-    #   cloud restart
-    ########################################################
+    local MAX_CMD=7   # "Command"
+    local MAX_FN=13   # "Functionality"
+    local MAX_EX=14   # "Syntax Example"
+
+    for row in "${ROWS[@]}"; do
+        IFS='|' read -r c f e <<< "$row"
+        local clen flen elen
+        clen="$(azterm_vis_len "$c")"
+        flen="$(azterm_vis_len "$f")"
+        elen="$(azterm_vis_len "$e")"
+        (( clen > MAX_CMD )) && MAX_CMD=$clen
+        (( flen > MAX_FN )) && MAX_FN=$flen
+        (( elen > MAX_EX )) && MAX_EX=$elen
+    done
 
     if (( TERM_WIDTH >= 120 )); then
-
         COMMAND_WIDTH=20
         FUNCTION_WIDTH=42
         EXAMPLE_WIDTH=38
-
     elif (( TERM_WIDTH >= 100 )); then
-
         COMMAND_WIDTH=20
         FUNCTION_WIDTH=36
         EXAMPLE_WIDTH=32
-
     elif (( TERM_WIDTH >= 90 )); then
-
         COMMAND_WIDTH=18
         FUNCTION_WIDTH=32
         EXAMPLE_WIDTH=28
-
     else
-
         COMMAND_WIDTH=16
-        FUNCTION_WIDTH=28
-        EXAMPLE_WIDTH=24
-
+        FUNCTION_WIDTH=30
+        EXAMPLE_WIDTH=22
     fi
 
-    ########################################################
-    # Calculate total table width.
-    ########################################################
+    # Ensure columns fit the actual content if terminal space permits
+    (( COMMAND_WIDTH < MAX_CMD )) && COMMAND_WIDTH=$MAX_CMD
+    (( FUNCTION_WIDTH < MAX_FN )) && FUNCTION_WIDTH=$MAX_FN
+    (( EXAMPLE_WIDTH < MAX_EX )) && EXAMPLE_WIDTH=$MAX_EX
 
     TABLE_WIDTH=$((COMMAND_WIDTH + FUNCTION_WIDTH + EXAMPLE_WIDTH + 9))
 
-    ########################################################
-    # If the table is still wider than the terminal,
-    # reduce the Functionality and Example columns first.
-    #
-    # We intentionally protect the Command column because
-    # command names should remain readable.
-    ########################################################
-
     if (( TABLE_WIDTH > TERM_WIDTH )); then
+        local AVAILABLE_WIDTH=$((TERM_WIDTH - 9))
+        local MIN_CMD=16
+        (( MAX_CMD < MIN_CMD )) && MIN_CMD=$MAX_CMD
+        COMMAND_WIDTH=$MIN_CMD
 
-        local AVAILABLE_WIDTH
-
-        AVAILABLE_WIDTH=$((TERM_WIDTH - COMMAND_WIDTH - 9))
-
-        if (( AVAILABLE_WIDTH >= 50 )); then
-
-            FUNCTION_WIDTH=$((AVAILABLE_WIDTH * 55 / 100))
-            EXAMPLE_WIDTH=$((AVAILABLE_WIDTH - FUNCTION_WIDTH))
-
-        else
-
-            # Very narrow terminal.
-            # Keep the command column readable.
-
-            COMMAND_WIDTH=16
-            FUNCTION_WIDTH=24
-            EXAMPLE_WIDTH=20
-
-        fi
-
+        local REMAINING=$(( AVAILABLE_WIDTH - COMMAND_WIDTH ))
+        FUNCTION_WIDTH=$(( REMAINING * 55 / 100 ))
+        EXAMPLE_WIDTH=$(( REMAINING - FUNCTION_WIDTH ))
     fi
 
-    ########################################################
-    # Print top border.
-    ########################################################
-
     printf '\n'
-
     printf '%b' "${COLOR_YELLOW}"
 
     printf '╔%s╦%s╦%s╗\n' \
@@ -454,18 +481,17 @@ azterm_print_help_table()
         "$(azterm_repeat_char '═' "$((FUNCTION_WIDTH + 2))")" \
         "$(azterm_repeat_char '═' "$((EXAMPLE_WIDTH + 2))")"
 
-    ########################################################
-    # Print table header.
-    ########################################################
+    local cpad=$(( COMMAND_WIDTH - 7 ))
+    local fpad=$(( FUNCTION_WIDTH - 13 ))
+    local epad=$(( EXAMPLE_WIDTH - 14 ))
+    (( cpad < 0 )) && cpad=0
+    (( fpad < 0 )) && fpad=0
+    (( epad < 0 )) && epad=0
 
-    printf '║ %-*s ║ %-*s ║ %-*s ║\n' \
-        "$COMMAND_WIDTH" "Command" \
-        "$FUNCTION_WIDTH" "Functionality" \
-        "$EXAMPLE_WIDTH" "Syntax Example"
-
-    ########################################################
-    # Print header separator.
-    ########################################################
+    printf '║ %s%*s ║ %s%*s ║ %s%*s ║\n' \
+        "Command" "$cpad" '' \
+        "Functionality" "$fpad" '' \
+        "Syntax Example" "$epad" ''
 
     printf '╠%s╬%s╬%s╣\n' \
         "$(azterm_repeat_char '═' "$((COMMAND_WIDTH + 2))")" \
@@ -474,28 +500,28 @@ azterm_print_help_table()
 
     printf '%b' "${COLOR_RESET}"
 
-    ########################################################
-    # Print all command rows.
-    ########################################################
-
     for row in "${ROWS[@]}"; do
-
         IFS='|' read -r COMMAND FUNCTION EXAMPLE <<< "$row"
 
-        printf '%b' "${COLOR_WHITE}"
+        COMMAND="$(azterm_trim_text "$COMMAND" "$COMMAND_WIDTH")"
+        FUNCTION="$(azterm_trim_text "$FUNCTION" "$FUNCTION_WIDTH")"
+        EXAMPLE="$(azterm_trim_text "$EXAMPLE" "$EXAMPLE_WIDTH")"
 
-        printf '║ %-*s ║ %-*s ║ %-*s ║\n' \
-            "$COMMAND_WIDTH" "$COMMAND" \
-            "$FUNCTION_WIDTH" "$FUNCTION" \
-            "$EXAMPLE_WIDTH" "$EXAMPLE"
+        local clen flen elen
+        clen="$(azterm_vis_len "$COMMAND")"
+        flen="$(azterm_vis_len "$FUNCTION")"
+        elen="$(azterm_vis_len "$EXAMPLE")"
 
-        printf '%b' "${COLOR_RESET}"
+        local c_spaces="$(azterm_pad_spaces "$((COMMAND_WIDTH - clen))")"
+        local f_spaces="$(azterm_pad_spaces "$((FUNCTION_WIDTH - flen))")"
+        local e_spaces="$(azterm_pad_spaces "$((EXAMPLE_WIDTH - elen))")"
 
+        printf '%b║%b %s%s %b║%b %s%s %b║%b %s%s %b║%b\n' \
+            "${COLOR_YELLOW}" "${COLOR_WHITE}" "$COMMAND" "$c_spaces" \
+            "${COLOR_YELLOW}" "${COLOR_WHITE}" "$FUNCTION" "$f_spaces" \
+            "${COLOR_YELLOW}" "${COLOR_WHITE}" "$EXAMPLE" "$e_spaces" \
+            "${COLOR_YELLOW}" "${COLOR_RESET}"
     done
-
-    ########################################################
-    # Print bottom border.
-    ########################################################
 
     printf '%b' "${COLOR_YELLOW}"
 
@@ -505,13 +531,9 @@ azterm_print_help_table()
         "$(azterm_repeat_char '═' "$((EXAMPLE_WIDTH + 2))")"
 
     printf '%b' "${COLOR_RESET}"
-
     printf '\n'
 }
 
-############################################################
-# Get the current directory short name for prompt
-############################################################
 get_prompt_path()
 {
     local PWD="$1"
