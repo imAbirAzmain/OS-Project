@@ -312,6 +312,34 @@ az:~> make file note.txt
 Error: File already exists: note.txt
 ```
 
+### open <filename>
+
+Display the contents of a file (cat functionality). Primarily used for `.txt` and `.az` script files.
+
+```
+az:~> open note.txt
+Hello from AzTerm!
+```
+
+Script file example:
+
+```
+az:~> open abir.az
+make folder bijoy2
+go bijoy2
+make file inside.txt
+```
+
+Error handling:
+
+```
+az:~> open nonexistent.txt
+Error: File not found: nonexistent.txt
+
+az:~> open MyProject
+Error: Cannot open directory: MyProject
+```
+
 ### delete <name>
 
 Delete a file or directory. Directories are deleted recursively.

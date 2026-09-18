@@ -24,10 +24,8 @@ HISTORY_FILE="data/history.txt"
 
 SCRIPT_DIRECTORY="scripts"
 
-# Cloudion management settings
+# Cloudion integration settings
+# CLOUDION_PATH: absolute path to the cloudion project directory.
+# Leave unset to use the default (sibling directory: ../cloudion).
+# Example override: export CLOUDION_PATH="/path/to/your/cloudion"
 CLOUDION_PATH="${SCRIPT_DIR%/*}/cloudion"
-CLOUDION_EXECUTABLE="bin/minicloud-server"
-CLOUDION_PORT="8080"
-CLOUDION_PID_FILE="${SCRIPT_DIR}/data/cloudion.pid"
-CLOUDION_LOG_FILE="${SCRIPT_DIR%/*}/cloudion/logs/server.log"
-

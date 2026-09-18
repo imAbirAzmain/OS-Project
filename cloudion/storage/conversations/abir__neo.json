@@ -1,0 +1,24 @@
+{
+  "id": "abir__neo",
+  "participants": [
+    "abir",
+    "neo"
+  ],
+  "messages": [
+    {
+      "id": "1789673290595-c41041ffaf0cd",
+      "sender": "abir",
+      "content": "Hello from Abir on filesystem database!",
+      "created_at": "2026-09-17T19:28:10.595Z",
+      "message_type": "text"
+    },
+    {
+      "id": "1789673299144-1694383c6ed5f",
+      "sender": "abir",
+      "message_type": "file",
+      "file_name": "shared_chat_test.txt",
+      "relative_path": "./shared_chat_test.txt",
+      "created_at": "2026-09-17T19:28:19.144Z"
+    }
+  ]
+}

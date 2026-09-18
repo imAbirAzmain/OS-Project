@@ -1,3 +1,0 @@
-From: alice
-Message: Hey Bob, check out the files in my storage!
----

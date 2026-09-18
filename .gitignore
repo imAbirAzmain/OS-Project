@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+*/.DS_Store
+**/.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node dependencies
+node_modules/
+**/node_modules/
+package-lock.json
+
+# Process & PID files
+*.pid
+.cloudion.pid
+cloudion/.cloudion.pid
+
+# Logs
+logs/
+*.log
+cloudion/logs/*.log
+cloudion/logs/cloudion_process.log
+cloudion/logs/server.log
+cloudion/logs/file.log
+cloudion/logs/chat.log
+cloudion/logs/group.log
+
+# Temporary files
+cloudion/storage/temporary/uploads/*
+!cloudion/storage/temporary/uploads/.gitkeep
+/tmp/

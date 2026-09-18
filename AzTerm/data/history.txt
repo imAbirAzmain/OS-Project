@@ -55,3 +55,73 @@ cloud start
 cloud status
 cloud stop
 exit
+help
+where am i
+show files
+cloud
+cloud start
+cloud status
+cloud stop
+exit
+help
+cloud
+cloud start
+cloud status
+cloud stop
+cloud status
+exit
+help
+where am i
+show files
+make folder bijoy
+go bijoy
+make file test.txt
+go ..
+show files
+write script bijoy.az
+show files
+help
+write script
+write script abir.az
+script abir.az
+write script abir.az
+script abir.az
+tree
+sho
+show files
+go ..
+show files
+cloud
+cloud start
+cloud status
+where am i
+cd ..
+go ..
+show files --depth 0
+go cloudion
+show files --depth 1
+go storage
+go Abir
+show fles
+show files
+cloud stop
+help
+cloud
+cloud start
+cloud status
+cloud start
+help
+cloud
+cloud start
+cloud status
+cloud stop
+cli
+cloud restart
+cloud logs
+cloud info
+cloud help
+help
+show files
+open abir.az
+go bijoy
+open test.txt

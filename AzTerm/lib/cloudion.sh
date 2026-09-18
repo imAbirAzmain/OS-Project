@@ -1,534 +1,511 @@
 #!/bin/bash
 
 ############################################################
-# Cloudion management integration
+# Cloudion management integration for AzTerm
+#
+# All `cloud` commands are delegated to Cloudion's own
+# scripts/cloud/cloud.sh dispatcher, which handles
+# start / stop / restart / status / logs / info / help.
+#
+# Output from Cloudion scripts is KEY=VALUE formatted.
+# This module parses those lines and renders them in
+# AzTerm's box-border style — keeping both UIs intact.
+#
+# NOTE: Written to be compatible with bash 3.2 (macOS system
+# bash) — no associative arrays (declare -A), no namerefs
+# (local -n), no mapfile / readarray.
 ############################################################
 
-cloudion_platform_name()
-{
-    case "$(uname -s)" in
-        Darwin)
-            echo "macOS"
-            ;;
-        Linux)
-            echo "Linux"
-            ;;
-        *)
-            echo "$(uname -s)"
-            ;;
-    esac
-}
-
+# ---------------------------------------------------------------------------
+# Resolve the Cloudion project directory.
+# Default: sibling of AzTerm's own directory (../cloudion).
+# Override via: export CLOUDION_PATH=/path/to/cloudion
+# ---------------------------------------------------------------------------
 cloudion_project_dir()
 {
-    local CANDIDATE="${CLOUDION_PATH:-${SCRIPT_DIR%/*}/cloudion}"
-
-    if [[ "$CANDIDATE" = /* ]]; then
-        echo "$CANDIDATE"
+    if [[ -n "${CLOUDION_PATH:-}" ]]; then
+        echo "$CLOUDION_PATH"
     else
-        echo "$SCRIPT_DIR/$CANDIDATE"
+        echo "${SCRIPT_DIR%/*}/cloudion"
     fi
 }
 
-cloudion_binary_path()
+# ---------------------------------------------------------------------------
+# Path to Cloudion's cloud.sh dispatcher.
+# ---------------------------------------------------------------------------
+cloudion_dispatcher()
 {
-    local PROJECT_DIR
-    PROJECT_DIR="$(cloudion_project_dir)"
-    local CANDIDATE="${CLOUDION_EXECUTABLE:-bin/minicloud-server}"
-
-    if [[ "$CANDIDATE" = /* ]]; then
-        echo "$CANDIDATE"
-    else
-        echo "$PROJECT_DIR/$CANDIDATE"
-    fi
+    echo "$(cloudion_project_dir)/scripts/cloud/cloud.sh"
 }
 
-cloudion_log_path()
+# ---------------------------------------------------------------------------
+# Verify Cloudion project is present and runnable.
+# Returns 0 if OK, 1 if not.
+# ---------------------------------------------------------------------------
+cloudion_check_available()
 {
-    local PROJECT_DIR
-    PROJECT_DIR="$(cloudion_project_dir)"
+    local DISPATCHER
+    DISPATCHER="$(cloudion_dispatcher)"
 
-    local PROJECT_LOG_PATHS=(
-        "$PROJECT_DIR/logs/server.log"
-        "$PROJECT_DIR/server.log"
-    )
+    if [[ ! -f "$DISPATCHER" ]]; then
+        echo
+        printf '%b' "${COLOR_RED}"
+        echo "Error: Cloudion project not found."
+        printf '%b' "${COLOR_RESET}"
+        echo
+        echo "Expected at: $(cloudion_project_dir)"
+        echo "Make sure the cloudion folder is next to the AzTerm folder."
+        echo
+        return 1
+    fi
 
-    local i
-    for i in "${PROJECT_LOG_PATHS[@]}"; do
-        if [[ -f "$i" ]]; then
-            echo "$i"
-            return 0
-        fi
+    if [[ ! -x "$DISPATCHER" ]]; then
+        # Auto-fix: make all cloud scripts executable
+        local CDIR
+        CDIR="$(cloudion_project_dir)"
+        chmod +x "$DISPATCHER" 2>/dev/null || true
+        find "$CDIR/scripts" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+    fi
+
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# Run a Cloudion subcommand and store all KEY=VALUE pairs into env vars
+# prefixed with _CK_ (Cloudion Key).  Clear them first.
+#
+# Usage:
+#   cloudion_run_kv start
+#   echo "$_CK_STATUS"   # SUCCESS or FAILURE
+#   echo "$_CK_PID"
+# ---------------------------------------------------------------------------
+cloudion_run_kv()
+{
+    # Clear all previous _CK_ vars
+    local _var
+    for _var in STATUS CODE MESSAGE PID CLOUDION_STATE STATE NAME VERSION UPTIME \
+                CPU_USAGE_PERCENT CPU_CORES \
+                MEMORY_TOTAL_BYTES MEMORY_USED_BYTES MEMORY_FREE_BYTES \
+                MEMORY_AVAILABLE_BYTES MEMORY_USAGE_PERCENT \
+                DISK_TOTAL_BYTES DISK_USED_BYTES DISK_AVAILABLE_BYTES DISK_USAGE_PERCENT \
+                PROCESS_COUNT UPTIME_SECONDS LOAD_AVERAGE TIMESTAMP \
+                INTERFACE_COUNT LISTENING_SOCKET_COUNT \
+                PROJECT_ROOT STORAGE_ROOT LOGS_ROOT BACKUPS_ROOT SCRIPT_COUNT CLOUD_AREAS \
+                CATEGORY COUNT; do
+        eval "_CK_${_var}=''"
     done
+    _CK_RAW=""
+    _CK_LINE_COUNT=0
 
-    local CANDIDATE="${CLOUDION_LOG_FILE:-${SCRIPT_DIR}/data/cloudion.log}"
+    local DISPATCHER
+    DISPATCHER="$(cloudion_dispatcher)"
 
-    if [[ "$CANDIDATE" = /* ]]; then
-        echo "$CANDIDATE"
-    else
-        echo "$SCRIPT_DIR/$CANDIDATE"
-    fi
+    # Run the subcommand; capture output (allow non-zero exit gracefully)
+    _CK_RAW="$("$DISPATCHER" "$@" 2>&1)" || true
+
+    # Parse KEY=VALUE lines — bash 3.2 compatible loop
+    local _line _key _val
+    while IFS= read -r _line; do
+        # Skip blank lines and comments
+        case "$_line" in
+            ''|\#*) continue ;;
+        esac
+        # Only process lines that contain '='
+        case "$_line" in
+            *=*)
+                _key="${_line%%=*}"
+                _val="${_line#*=}"
+                # Skip keys with spaces (not valid KEY=VALUE)
+                case "$_key" in
+                    *\ *) continue ;;
+                esac
+                eval "_CK_${_key}=\"\$_val\""
+                # Count log lines
+                case "$_key" in
+                    LINE_*) _CK_LINE_COUNT=$(( _CK_LINE_COUNT + 1 )) ;;
+                esac
+                ;;
+        esac
+    done <<< "$_CK_RAW"
 }
 
-cloudion_pid_file_path()
+# ---------------------------------------------------------------------------
+# Print the standard AzTerm-style Cloudion box header.
+# ---------------------------------------------------------------------------
+cloudion_box_header()
 {
-    local CANDIDATE="${CLOUDION_PID_FILE:-${SCRIPT_DIR}/data/cloudion.pid}"
-
-    if [[ "$CANDIDATE" = /* ]]; then
-        echo "$CANDIDATE"
-    else
-        echo "$SCRIPT_DIR/$CANDIDATE"
-    fi
+    local TITLE="$1"
+    printf '%b' "${COLOR_YELLOW}"
+    printf '\n'
+    printf '╔══════════════════════════════════════════╗\n'
+    printf '║  %-40s║\n' "$TITLE"
+    printf '╠══════════════════════════════════════════╣\n'
+    printf '%b' "${COLOR_RESET}"
 }
 
-cloudion_port_value()
+# ---------------------------------------------------------------------------
+# Print the standard AzTerm-style Cloudion box footer.
+# ---------------------------------------------------------------------------
+cloudion_box_footer()
 {
-    local PROJECT_DIR
-    PROJECT_DIR="$(cloudion_project_dir)"
-
-    if [[ -f "$PROJECT_DIR/config/server.conf" ]]; then
-        local PORT_LINE
-        PORT_LINE=$(grep '^PORT=' "$PROJECT_DIR/config/server.conf" 2>/dev/null | head -n 1)
-        if [[ -n "$PORT_LINE" ]]; then
-            echo "${PORT_LINE#PORT=}"
-            return 0
-        fi
-    fi
-
-    if [[ -f "$PROJECT_DIR/config.ini" ]]; then
-        local PORT_LINE
-        PORT_LINE=$(grep '^port=' "$PROJECT_DIR/config.ini" 2>/dev/null | head -n 1)
-        if [[ -n "$PORT_LINE" ]]; then
-            echo "${PORT_LINE#port=}"
-            return 0
-        fi
-    fi
-
-    if [[ -n "${CLOUDION_PORT:-}" ]]; then
-        echo "$CLOUDION_PORT"
-        return 0
-    fi
-
-    echo "8080"
+    printf '%b' "${COLOR_YELLOW}"
+    printf '╚══════════════════════════════════════════╝\n'
+    printf '%b' "${COLOR_RESET}"
+    printf '\n'
 }
 
-cloudion_probe_runtime()
+# ---------------------------------------------------------------------------
+# Print a labelled row inside the box.
+# ---------------------------------------------------------------------------
+cloudion_box_row()
 {
-    local BINARY_PATH
-    BINARY_PATH="$(cloudion_binary_path)"
-
-    if [[ ! -f "$BINARY_PATH" ]]; then
-        return 1
-    fi
-
-    if [[ ! -x "$BINARY_PATH" ]]; then
-        return 1
-    fi
-
-    local FILE_INFO
-    FILE_INFO=$(file "$BINARY_PATH" 2>/dev/null || true)
-    if [[ "$FILE_INFO" != *"Mach-O"* && "$FILE_INFO" != *"ELF"* ]]; then
-        return 1
-    fi
-
-    local PROBE_LOG
-    PROBE_LOG="$(mktemp)"
-    "$BINARY_PATH" > "$PROBE_LOG" 2>&1 &
-    local PROBE_PID=$!
-    sleep 2
-
-    if kill -0 "$PROBE_PID" 2>/dev/null; then
-        kill "$PROBE_PID" 2>/dev/null || kill -9 "$PROBE_PID" 2>/dev/null || true
-        wait "$PROBE_PID" 2>/dev/null || true
-        rm -f "$PROBE_LOG"
-        return 0
-    fi
-
-    wait "$PROBE_PID" 2>/dev/null || true
-    rm -f "$PROBE_LOG"
-    return 1
+    local LABEL="$1"
+    local VALUE="$2"
+    printf '%b' "${COLOR_WHITE}"
+    printf '║  %-14s: %-23s║\n' "$LABEL" "$VALUE"
+    printf '%b' "${COLOR_RESET}"
 }
 
-cloudion_compatible_with_os()
-{
-    if cloudion_probe_runtime; then
-        return 0
-    fi
-
-    return 1
-}
-
-cloudion_print_compatibility_error()
-{
-    local BINARY_PATH
-    BINARY_PATH="$(cloudion_binary_path)"
-
-    echo
-    echo "Cloudion cannot be started from this host."
-    echo
-    echo "Detected platform: $(cloudion_platform_name)"
-    echo "Executable: $BINARY_PATH"
-    echo
-    echo "The Cloudion binary is present, but it did not pass a real runtime startup check."
-    echo "This usually means the binary is incompatible with this host or exited immediately."
-    echo
-    return 1
-}
-
-cloudion_clean_stale_pid()
-{
-    local PID_FILE
-    PID_FILE="$(cloudion_pid_file_path)"
-
-    if [[ ! -f "$PID_FILE" ]]; then
-        return 0
-    fi
-
-    local PID
-    PID=$(tr -d '[:space:]' < "$PID_FILE")
-
-    if [[ ! "$PID" =~ ^[0-9]+$ ]]; then
-        rm -f "$PID_FILE"
-        return 0
-    fi
-
-    if ! kill -0 "$PID" 2>/dev/null; then
-        rm -f "$PID_FILE"
-    fi
-}
-
-cloudion_find_pid()
-{
-    local PID_FILE
-    PID_FILE="$(cloudion_pid_file_path)"
-    local PID=""
-
-    if [[ -f "$PID_FILE" ]]; then
-        PID=$(tr -d '[:space:]' < "$PID_FILE")
-        if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
-            local PROCESS_NAME
-            PROCESS_NAME=$(ps -p "$PID" -o comm= 2>/dev/null | tr -d '[:space:]')
-            if [[ "$PROCESS_NAME" == "minicloud-server" ]]; then
-                echo "$PID"
-                return 0
-            fi
-        fi
-        rm -f "$PID_FILE"
-    fi
-
-    while IFS=' ' read -r PID PROCESS_NAME ARGS; do
-        if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
-            if [[ "$PROCESS_NAME" == "minicloud-server" ]] || [[ "$ARGS" == *"minicloud-server"* ]]; then
-                echo "$PID"
-                return 0
-            fi
-        fi
-    done < <(ps -eo pid=,comm=,args= 2>/dev/null)
-
-    return 1
-}
-
-cloudion_is_running()
-{
-    if [[ -n "$(cloudion_find_pid)" ]]; then
-        return 0
-    fi
-
-    return 1
-}
-
+# ---------------------------------------------------------------------------
+# cloud start
+# ---------------------------------------------------------------------------
 cloudion_start()
 {
-    if ! cloudion_compatible_with_os; then
-        cloudion_print_compatibility_error
-        return 1
+    if ! cloudion_check_available; then return 1; fi
+
+    printf '%b' "${COLOR_YELLOW}"
+    printf '\nStarting Cloudion...\n'
+    printf '%b' "${COLOR_RESET}"
+
+    cloudion_run_kv start
+
+    cloudion_box_header "CLOUDION — START"
+
+    if [[ "$_CK_STATUS" == "SUCCESS" ]]; then
+        cloudion_box_row "Status"  "STARTED ✓"
+        [[ -n "$_CK_PID" ]] && cloudion_box_row "PID"     "$_CK_PID"
+        cloudion_box_row "Port"    "4000"
+        cloudion_box_row "URL"     "http://localhost:4000"
+        cloudion_box_row "Logs"    "cloud logs"
+    else
+        printf '%b' "${COLOR_RED}"
+        printf '║  %-40s║\n' "FAILED TO START"
+        printf '%b' "${COLOR_RESET}"
+        [[ -n "$_CK_MESSAGE" ]] && printf '║  %-40s║\n' "$_CK_MESSAGE"
     fi
 
-    if cloudion_is_running; then
-        echo
-        echo "Cloudion is already running."
-        echo
-        return 1
-    fi
-
-    local PROJECT_DIR
-    PROJECT_DIR="$(cloudion_project_dir)"
-    local BINARY_PATH
-    BINARY_PATH="$(cloudion_binary_path)"
-    local LOG_FILE
-    LOG_FILE="$(cloudion_log_path)"
-    local PID_FILE
-    PID_FILE="$(cloudion_pid_file_path)"
-
-    if [[ ! -f "$BINARY_PATH" ]]; then
-        echo
-        echo "Error: Cloudion executable was not found."
-        echo
-        echo "Expected:"
-        echo "    $BINARY_PATH"
-        echo
-        return 1
-    fi
-
-    if [[ ! -x "$BINARY_PATH" ]]; then
-        echo
-        echo "Error: Cloudion executable is not executable."
-        echo
-        echo "Expected:"
-        echo "    $BINARY_PATH"
-        echo
-        return 1
-    fi
-
-    mkdir -p "$(dirname "$PID_FILE")"
-    mkdir -p "$(dirname "$LOG_FILE")"
-
-    echo
-    echo "Starting Cloudion..."
-
-    (
-        cd "$PROJECT_DIR" || exit 1
-        "$BINARY_PATH" > "$LOG_FILE" 2>&1 &
-        echo $! > "$PID_FILE"
-    )
-
-    sleep 1
-
-    local PID
-    PID=$(cloudion_find_pid || true)
-
-    if [[ -n "$PID" ]]; then
-        echo
-        echo "Cloudion started successfully."
-        echo "PID: $PID"
-        echo "Port: $(cloudion_port_value)"
-        echo
-        return 0
-    fi
-
-    echo
-    echo "Failed to start Cloudion."
-    echo
-    if [[ -f "$LOG_FILE" ]]; then
-        echo "Recent log output:"
-        tail -n 20 "$LOG_FILE" 2>/dev/null
-        echo
-    fi
-    rm -f "$PID_FILE"
-    return 1
+    cloudion_box_footer
 }
 
+# ---------------------------------------------------------------------------
+# cloud stop
+# ---------------------------------------------------------------------------
 cloudion_stop()
 {
-    local PID
-    PID=$(cloudion_find_pid || true)
+    if ! cloudion_check_available; then return 1; fi
 
-    if [[ -z "$PID" ]]; then
-        echo
-        echo "Cloudion is not running."
-        echo
-        return 1
+    printf '%b' "${COLOR_YELLOW}"
+    printf '\nStopping Cloudion...\n'
+    printf '%b' "${COLOR_RESET}"
+
+    cloudion_run_kv stop
+
+    cloudion_box_header "CLOUDION — STOP"
+
+    if [[ "$_CK_STATUS" == "SUCCESS" ]]; then
+        cloudion_box_row "Status"  "STOPPED ✓"
+        [[ -n "$_CK_MESSAGE" ]] && cloudion_box_row "Info" "$_CK_MESSAGE"
+    else
+        printf '%b' "${COLOR_RED}"
+        printf '║  %-40s║\n' "FAILED TO STOP"
+        printf '%b' "${COLOR_RESET}"
+        [[ -n "$_CK_MESSAGE" ]] && printf '║  %-40s║\n' "$_CK_MESSAGE"
     fi
 
-    echo
-    echo "Stopping Cloudion..."
-    kill -TERM "$PID" 2>/dev/null
-
-    sleep 1
-
-    if cloudion_is_running; then
-        echo "Graceful shutdown did not complete."
-        echo "Sending SIGKILL to PID $PID"
-        kill -KILL "$PID" 2>/dev/null || true
-        sleep 1
-    fi
-
-    if cloudion_is_running; then
-        echo
-        echo "Failed to stop Cloudion."
-        echo
-        return 1
-    fi
-
-    rm -f "$(cloudion_pid_file_path)"
-    echo
-    echo "Cloudion stopped successfully."
-    echo
-    return 0
+    cloudion_box_footer
 }
 
+# ---------------------------------------------------------------------------
+# cloud restart
+# ---------------------------------------------------------------------------
 cloudion_restart()
 {
-    if cloudion_is_running; then
-        echo
-        echo "Restarting Cloudion..."
-        echo
-        cloudion_stop
-        cloudion_start
-        return 0
+    if ! cloudion_check_available; then return 1; fi
+
+    printf '%b' "${COLOR_YELLOW}"
+    printf '\nRestarting Cloudion...\n'
+    printf '%b' "${COLOR_RESET}"
+
+    cloudion_run_kv restart
+
+    cloudion_box_header "CLOUDION — RESTART"
+
+    if [[ "$_CK_STATUS" == "SUCCESS" ]]; then
+        cloudion_box_row "Status"  "RESTARTED ✓"
+        [[ -n "$_CK_PID" ]] && cloudion_box_row "PID"     "$_CK_PID"
+        cloudion_box_row "Port"    "4000"
+    else
+        printf '%b' "${COLOR_RED}"
+        printf '║  %-40s║\n' "FAILED TO RESTART"
+        printf '%b' "${COLOR_RESET}"
+        [[ -n "$_CK_MESSAGE" ]] && printf '║  %-40s║\n' "$_CK_MESSAGE"
     fi
 
-    echo
-    echo "Cloudion is not running."
-    echo "Starting Cloudion..."
-    echo
-    cloudion_start
+    cloudion_box_footer
 }
 
-cloudion_status_line()
-{
-    local TEXT="$1"
-    printf '%-14s : %s\n' "${TEXT}" "${2}"
-}
-
+# ---------------------------------------------------------------------------
+# cloud status
+# ---------------------------------------------------------------------------
 cloudion_status()
 {
-    echo
-    echo "========================================"
-    echo "         CLOUDION STATUS"
-    echo "========================================"
+    if ! cloudion_check_available; then return 1; fi
 
-    if ! cloudion_compatible_with_os; then
-        echo
-        echo "Status       : INCOMPATIBLE"
-        echo "Current OS   : $(cloudion_platform_name)"
-        echo "Executable   : $(cloudion_binary_path)"
-        echo
-        echo "========================================"
-        echo
-        return 0
+    cloudion_run_kv status
+
+    cloudion_box_header "CLOUDION — STATUS"
+
+    # Server state
+    if [[ "$_CK_CLOUDION_STATE" == "RUNNING" ]]; then
+        printf '%b' "${COLOR_SUCCESS}"
+        printf '║  %-14s: %-23s║\n' "Server" "RUNNING ●"
+        printf '%b' "${COLOR_RESET}"
+        [[ -n "$_CK_PID" ]] && cloudion_box_row "PID" "$_CK_PID"
+        cloudion_box_row "URL" "http://localhost:4000"
+    else
+        printf '%b' "${COLOR_RED}"
+        printf '║  %-14s: %-23s║\n' "Server" "STOPPED ○"
+        printf '%b' "${COLOR_RESET}"
     fi
 
-    local PID
-    PID=$(cloudion_find_pid || true)
+    # Separator
+    printf '%b' "${COLOR_YELLOW}"
+    printf '╠══════════════════════════════════════════╣\n'
+    printf '%b' "${COLOR_DIM}"
+    printf '║  %-40s║\n' "System Metrics"
+    printf '%b' "${COLOR_YELLOW}"
+    printf '╠══════════════════════════════════════════╣\n'
+    printf '%b' "${COLOR_RESET}"
 
-    if [[ -z "$PID" ]]; then
-        echo
-        echo "Status       : STOPPED"
-        echo
-        echo "========================================"
-        echo
-        return 0
+    # CPU
+    if [[ -n "$_CK_CPU_USAGE_PERCENT" ]]; then
+        local CPU_LABEL="CPU"
+        [[ -n "$_CK_CPU_CORES" ]] && CPU_LABEL="CPU ($_CK_CPU_CORES cores)"
+        cloudion_box_row "$CPU_LABEL" "${_CK_CPU_USAGE_PERCENT}%"
     fi
 
-    local PORT
-    PORT="$(cloudion_port_value)"
-    local UPTIME
-    UPTIME=$(ps -p "$PID" -o etime= 2>/dev/null | tr -d '[:space:]')
-
-    echo
-    echo "Status       : RUNNING"
-    echo "PID          : $PID"
-    echo "Port         : $PORT"
-    if [[ -n "$UPTIME" ]]; then
-        echo "Uptime       : $UPTIME"
+    # Memory
+    if [[ -n "$_CK_MEMORY_USAGE_PERCENT" ]]; then
+        if [[ -n "$_CK_MEMORY_USED_BYTES" && -n "$_CK_MEMORY_TOTAL_BYTES" && "$_CK_MEMORY_TOTAL_BYTES" -gt 0 ]]; then
+            local MEM_USED_MB=$(( _CK_MEMORY_USED_BYTES / 1024 / 1024 ))
+            local MEM_TOTAL_MB=$(( _CK_MEMORY_TOTAL_BYTES / 1024 / 1024 ))
+            cloudion_box_row "Memory" "${_CK_MEMORY_USAGE_PERCENT}% (${MEM_USED_MB}/${MEM_TOTAL_MB} MB)"
+        else
+            cloudion_box_row "Memory" "${_CK_MEMORY_USAGE_PERCENT}%"
+        fi
     fi
-    echo "Server       : $(basename "$(cloudion_binary_path)")"
-    echo
-    echo "========================================"
-    echo
-    return 0
+
+    # Disk
+    [[ -n "$_CK_DISK_USAGE_PERCENT" ]]    && cloudion_box_row "Disk"       "${_CK_DISK_USAGE_PERCENT}%"
+
+    # Load
+    [[ -n "$_CK_LOAD_AVERAGE" ]]          && cloudion_box_row "Load avg"   "$_CK_LOAD_AVERAGE"
+
+    # Uptime
+    if [[ -n "$_CK_UPTIME_SECONDS" && "$_CK_UPTIME_SECONDS" =~ ^[0-9]+$ ]]; then
+        local UH=$(( _CK_UPTIME_SECONDS / 3600 ))
+        local UM=$(( (_CK_UPTIME_SECONDS % 3600) / 60 ))
+        local US=$(( _CK_UPTIME_SECONDS % 60 ))
+        cloudion_box_row "Uptime" "${UH}h ${UM}m ${US}s"
+    fi
+
+    # Processes
+    [[ -n "$_CK_PROCESS_COUNT" ]]         && cloudion_box_row "Processes"  "$_CK_PROCESS_COUNT"
+
+    # Network
+    [[ -n "$_CK_INTERFACE_COUNT" ]]       && cloudion_box_row "Interfaces" "$_CK_INTERFACE_COUNT"
+    [[ -n "$_CK_LISTENING_SOCKET_COUNT" ]] && cloudion_box_row "Listening"  "$_CK_LISTENING_SOCKET_COUNT"
+
+    cloudion_box_footer
 }
 
-cloudion_info()
+# ---------------------------------------------------------------------------
+# cloud storage
+# ---------------------------------------------------------------------------
+cloudion_storage()
 {
-    local PROJECT_DIR
-    PROJECT_DIR="$(cloudion_project_dir)"
-    local BINARY_PATH
-    BINARY_PATH="$(cloudion_binary_path)"
-    local PORT
-    PORT="$(cloudion_port_value)"
-    local PID_FILE
-    PID_FILE="$(cloudion_pid_file_path)"
-    local LOG_FILE
-    LOG_FILE="$(cloudion_log_path)"
-    local STATUS_TEXT="STOPPED"
+    if ! cloudion_check_available; then return 1; fi
 
-    if cloudion_is_running; then
-        STATUS_TEXT="RUNNING"
+    cloudion_run_kv storage
+
+    cloudion_box_header "CLOUDION — STORAGE"
+
+    # Filesystem total, used, available
+    if [[ -n "$_CK_FILESYSTEM_TOTAL_BYTES" && "$_CK_FILESYSTEM_TOTAL_BYTES" -gt 0 ]]; then
+        local TOTAL_MB=$(( _CK_FILESYSTEM_TOTAL_BYTES / 1024 / 1024 ))
+        local USED_MB=$(( _CK_FILESYSTEM_USED_BYTES / 1024 / 1024 ))
+        local AVAIL_MB=$(( _CK_FILESYSTEM_AVAILABLE_BYTES / 1024 / 1024 ))
+        cloudion_box_row "Total Disk" "${TOTAL_MB} MB"
+        cloudion_box_row "Used Disk"  "${USED_MB} MB"
+        cloudion_box_row "Available"  "${AVAIL_MB} MB"
     fi
 
-    echo
-    echo "========================================"
-    echo "         CLOUDION INFORMATION"
-    echo "========================================"
-    echo
-    echo "Project      : Cloudion"
-    echo "Server       : $(basename "$BINARY_PATH")"
-    echo "Location     : $PROJECT_DIR"
-    echo "Executable   : $BINARY_PATH"
-    echo "Port         : $PORT"
-    echo "PID File     : $PID_FILE"
-    echo "Log File     : $LOG_FILE"
-    echo "Platform     : $(cloudion_platform_name)"
-    echo "Status       : $STATUS_TEXT"
-    echo
-    echo "========================================"
-    echo
-    return 0
+    # Separator
+    printf '%b' "${COLOR_YELLOW}"
+    printf '╠══════════════════════════════════════════╣\n'
+    printf '%b' "${COLOR_DIM}"
+    printf '║  %-40s║\n' "Storage Areas"
+    printf '%b' "${COLOR_YELLOW}"
+    printf '╠══════════════════════════════════════════╣\n'
+    printf '%b' "${COLOR_RESET}"
+
+    [[ -n "$_CK_AREA_USERS_BYTES" ]]      && cloudion_box_row "Users (Personal)" "$(( _CK_AREA_USERS_BYTES / 1024 )) KB"
+    [[ -n "$_CK_AREA_ONE_TO_ONE_BYTES" ]]  && cloudion_box_row "One-to-One"        "$(( _CK_AREA_ONE_TO_ONE_BYTES / 1024 )) KB"
+    [[ -n "$_CK_AREA_GROUPS_BYTES" ]]     && cloudion_box_row "Groups"            "$(( _CK_AREA_GROUPS_BYTES / 1024 )) KB"
+    [[ -n "$_CK_AREA_GLOBAL_BYTES" ]]     && cloudion_box_row "Global Cloud"      "$(( _CK_AREA_GLOBAL_BYTES / 1024 )) KB"
+    [[ -n "$_CK_AREA_TEMPORARY_BYTES" ]]  && cloudion_box_row "Temporary"         "$(( _CK_AREA_TEMPORARY_BYTES / 1024 )) KB"
+
+    # Per-user breakdown if available
+    if [[ -n "$_CK_COUNT" && "$_CK_COUNT" -gt 0 ]]; then
+        printf '%b' "${COLOR_YELLOW}"
+        printf '╠══════════════════════════════════════════╣\n'
+        printf '%b' "${COLOR_DIM}"
+        printf '║  %-40s║\n' "User Usage Breakdown"
+        printf '%b' "${COLOR_YELLOW}"
+        printf '╠══════════════════════════════════════════╣\n'
+        printf '%b' "${COLOR_RESET}"
+
+        local i
+        for ((i = 0; i < _CK_COUNT; i++)); do
+            local UNAME_VAR="_CK_USER_${i}_NAME"
+            local UBYTES_VAR="_CK_USER_${i}_BYTES"
+            local UNAME="${!UNAME_VAR}"
+            local UBYTES="${!UBYTES_VAR}"
+            if [[ -n "$UNAME" ]]; then
+                cloudion_box_row "$UNAME" "$(( ${UBYTES:-0} / 1024 )) KB"
+            fi
+        done
+    fi
+
+    cloudion_box_footer
 }
 
+# ---------------------------------------------------------------------------
+# cloud logs [N] [category]
+# ---------------------------------------------------------------------------
 cloudion_logs()
 {
-    local COUNT="${1:-20}"
-    local LOG_FILE
-    LOG_FILE="$(cloudion_log_path)"
+    if ! cloudion_check_available; then return 1; fi
 
-    if [[ ! "$COUNT" =~ ^[0-9]+$ ]]; then
-        COUNT=20
-    fi
+    local COUNT="${1:-30}"
+    local CATEGORY="${2:-server}"
 
-    echo
-    echo "========================================"
-    echo "          CLOUDION LOGS"
-    echo "========================================"
-    echo
+    cloudion_run_kv logs "$COUNT" "$CATEGORY"
 
-    if [[ ! -f "$LOG_FILE" ]]; then
-        echo "No Cloudion log file is available yet."
-        echo
-        echo "========================================"
-        echo
+    local CAT="${_CK_CATEGORY:-$CATEGORY}"
+    cloudion_box_header "CLOUDION — LOGS ($CAT)"
+
+    if [[ "$_CK_STATUS" != "SUCCESS" ]]; then
+        printf '%b' "${COLOR_RED}"
+        printf '║  %-40s║\n' "Error reading logs"
+        [[ -n "$_CK_MESSAGE" ]] && printf '║  %-40s║\n' "$_CK_MESSAGE"
+        printf '%b' "${COLOR_RESET}"
+        cloudion_box_footer
         return 1
     fi
 
-    tail -n "$COUNT" "$LOG_FILE" 2>/dev/null || echo "Cloudion log file is empty."
+    if [[ "${_CK_COUNT:-0}" -eq 0 ]]; then
+        printf '%b' "${COLOR_DIM}"
+        printf '║  %-40s║\n' "No log entries yet."
+        printf '%b' "${COLOR_RESET}"
+        cloudion_box_footer
+        return 0
+    fi
 
-    echo
-    echo "========================================"
-    echo
+    cloudion_box_footer
+
+    # Print each log line in readable form (not boxed to preserve line length)
+    printf '%b' "${COLOR_DIM}"
+    local i=0
+    while [[ $i -lt $_CK_LINE_COUNT ]]; do
+        local _LINEVAR="_CK_LINE_${i}"
+        local _LINEVAL
+        _LINEVAL="$(eval echo "\${$_LINEVAR:-}")"
+        [[ -n "$_LINEVAL" ]] && printf '  %s\n' "$_LINEVAL"
+        i=$(( i + 1 ))
+    done
+    printf '%b' "${COLOR_RESET}"
+    printf '\n'
     return 0
 }
 
-cloudion_help()
+# ---------------------------------------------------------------------------
+# cloud info
+# ---------------------------------------------------------------------------
+cloudion_info()
 {
-    echo
-    echo "Cloudion Management"
-    echo "==================="
-    echo
-    echo "cloud start"
-    echo "    Start Cloudion."
-    echo
-    echo "cloud stop"
-    echo "    Stop Cloudion."
-    echo
-    echo "cloud restart"
-    echo "    Restart Cloudion."
-    echo
-    echo "cloud status"
-    echo "    Show Cloudion status."
-    echo
-    echo "cloud logs"
-    echo "    Show recent Cloudion logs."
-    echo
-    echo "cloud info"
-    echo "    Show Cloudion information."
-    echo
-    echo "cloud help"
-    echo "    Show this help."
-    echo
+    if ! cloudion_check_available; then return 1; fi
+
+    cloudion_run_kv info
+
+    cloudion_box_header "CLOUDION — INFO"
+
+    cloudion_box_row "Name"    "${_CK_NAME:-Cloudion}"
+    cloudion_box_row "Version" "${_CK_VERSION:-unknown}"
+    cloudion_box_row "State"   "${_CK_STATE:-UNKNOWN}"
+    [[ -n "$_CK_PID" ]]    && cloudion_box_row "PID"     "$_CK_PID"
+    [[ -n "$_CK_UPTIME" ]] && cloudion_box_row "Uptime"  "$_CK_UPTIME"
+    cloudion_box_row "Port"    "4000"
+    cloudion_box_row "URL"     "http://localhost:4000"
+
+    printf '%b' "${COLOR_YELLOW}"
+    printf '╠══════════════════════════════════════════╣\n'
+    printf '%b' "${COLOR_DIM}"
+    printf '║  %-40s║\n' "Paths"
+    printf '%b' "${COLOR_YELLOW}"
+    printf '╠══════════════════════════════════════════╣\n'
+    printf '%b' "${COLOR_RESET}"
+
+    [[ -n "$_CK_PROJECT_ROOT" ]] && cloudion_box_row "Root"    "$_CK_PROJECT_ROOT"
+    [[ -n "$_CK_STORAGE_ROOT" ]] && cloudion_box_row "Storage" "$_CK_STORAGE_ROOT"
+    [[ -n "$_CK_LOGS_ROOT" ]]    && cloudion_box_row "Logs"    "$_CK_LOGS_ROOT"
+    [[ -n "$_CK_BACKUPS_ROOT" ]] && cloudion_box_row "Backups" "$_CK_BACKUPS_ROOT"
+
+    if [[ -n "$_CK_SCRIPT_COUNT" || -n "$_CK_CLOUD_AREAS" ]]; then
+        printf '%b' "${COLOR_YELLOW}"
+        printf '╠══════════════════════════════════════════╣\n'
+        printf '%b' "${COLOR_RESET}"
+        [[ -n "$_CK_SCRIPT_COUNT" ]] && cloudion_box_row "Scripts" "$_CK_SCRIPT_COUNT shell scripts"
+        [[ -n "$_CK_CLOUD_AREAS" ]]  && cloudion_box_row "Areas"   "$_CK_CLOUD_AREAS"
+    fi
+
+    cloudion_box_footer
 }
 
+# ---------------------------------------------------------------------------
+# cloud help
+# ---------------------------------------------------------------------------
+cloudion_help()
+{
+    local -a HELP_ROWS=(
+        "cloud|Manage Cloudion server|cloud start"
+        "cloud start|Start Cloudion backend|cloud start"
+        "cloud stop|Stop Cloudion backend|cloud stop"
+        "cloud restart|Restart Cloudion|cloud restart"
+        "cloud status|Show status & metrics|cloud status"
+        "cloud storage|Show storage usage & breakdown|cloud storage"
+        "cloud logs|Show recent server logs|cloud logs"
+        "cloud logs N cat|Show N lines of category|cloud logs 50 auth"
+        "cloud info|Show full project info|cloud info"
+        "cloud help|Show this help|cloud help"
+    )
+    azterm_print_help_table "${HELP_ROWS[@]}"
+}
+
+# ---------------------------------------------------------------------------
+# Dispatcher — called by AzTerm's route_command()
+# Returns 0 if handled, 1 if not our command.
+# ---------------------------------------------------------------------------
 cloudion_dispatch()
 {
     if [[ "$COMMAND" != "cloud" ]]; then
@@ -557,12 +534,20 @@ cloudion_dispatch()
             cloudion_status
             return 0
             ;;
+        storage)
+            cloudion_storage
+            return 0
+            ;;
         logs)
+            local LOG_COUNT=30
+            local LOG_CAT="server"
             if [[ $ARG_COUNT -ge 2 ]]; then
-                cloudion_logs "${ARGS[1]}"
-            else
-                cloudion_logs 20
+                LOG_COUNT="${ARGS[1]}"
             fi
+            if [[ $ARG_COUNT -ge 3 ]]; then
+                LOG_CAT="${ARGS[2]}"
+            fi
+            cloudion_logs "$LOG_COUNT" "$LOG_CAT"
             return 0
             ;;
         info)
@@ -575,7 +560,9 @@ cloudion_dispatch()
             ;;
         *)
             echo
-            echo "Unknown Cloudion command: ${ARGS[0]}"
+            printf '%b' "${COLOR_RED}"
+            echo "Unknown cloud subcommand: ${ARGS[0]}"
+            printf '%b' "${COLOR_RESET}"
             echo
             cloudion_help
             return 1

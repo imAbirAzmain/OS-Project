@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloudion</title>
+<style>
+  :root {
+    --bg: #12161c;
+    --panel: #181d26;
+    --panel-alt: #1f2530;
+    --border: #2a3140;
+    --text: #dfe4ea;
+    --text-dim: #8891a1;
+    --accent: #d7a552;
+    --accent-dim: #8a6a35;
+    --ok: #6fbf8b;
+    --err: #d97b6c;
+    --mono: "IBM Plex Mono", "Consolas", "SFMono-Regular", monospace;
+    --sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .prompt-line { font-family: var(--mono); color: var(--accent); }
+
+  /* ---- Auth screen ---- */
+  #auth-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .auth-card {
+    width: 380px;
+    max-width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 32px;
+  }
+  .auth-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .auth-heading {
+    font-size: 26px;
+    font-weight: 600;
+    margin: 0 0 24px 0;
+  }
+  .auth-heading span { color: var(--accent); }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 5px; }
+  .field input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+  }
+  .field input:focus { outline: none; border-color: var(--accent-dim); }
+  button {
+    cursor: pointer;
+    font-family: var(--sans);
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+  .btn-primary { background: var(--accent); color: #1a1508; width: 100%; }
+  .btn-primary:hover { background: #e3b565; }
+  .btn-secondary { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+  .btn-secondary:hover { color: var(--text); border-color: var(--text-dim); }
+  .btn-danger { background: transparent; color: var(--err); border: 1px solid var(--err); }
+  .auth-switch { margin-top: 18px; text-align: center; font-size: 13px; color: var(--text-dim); }
+  .auth-switch a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  .msg { font-size: 13px; margin-top: 12px; padding: 8px 10px; border-radius: 4px; }
+  .msg.error { background: rgba(217,123,108,0.12); color: var(--err); }
+  .msg.ok { background: rgba(111,191,139,0.12); color: var(--ok); }
+
+  /* ---- App shell ---- */
+  #app-screen { display: none; min-height: 100vh; }
+  .sidebar {
+    width: 220px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    position: fixed;
+    top: 0; bottom: 0; left: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .brand { font-family: var(--mono); padding: 0 20px 20px 20px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+  .brand-name { font-weight: 700; font-size: 15px; }
+  .brand-name span { color: var(--accent); }
+  .brand-user { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  nav { flex: 1; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    border-left: 3px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: var(--panel-alt); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--panel-alt); }
+  .sidebar-footer { padding: 12px 20px; border-top: 1px solid var(--border); }
+
+  main { margin-left: 220px; padding: 32px 40px; max-width: 980px; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .view-title { font-size: 22px; font-weight: 600; margin: 0 0 6px 0; }
+  .view-sub { color: var(--text-dim); font-size: 14px; margin: 0 0 24px 0; }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 20px; margin-bottom: 20px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row input[type=text], .row input[type=file] {
+    padding: 9px 11px; background: var(--panel-alt); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 13px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; color: var(--text-dim); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;}
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border); font-family: var(--mono); }
+  tr:last-child td { border-bottom: none; }
+  .file-name { color: var(--text); }
+  .cell-actions { display: flex; gap: 6px; }
+  .link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 12.5px; font-family: var(--sans); padding: 3px 6px; }
+  .link-btn.danger { color: var(--err); }
+  .empty-state { color: var(--text-dim); font-size: 13.5px; padding: 20px 0; text-align: center; }
+
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  .metric { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 5px; padding: 14px; }
+  .metric-label { font-size: 11.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .metric-value { font-family: var(--mono); font-size: 22px; margin-top: 4px; color: var(--accent); }
+
+  .chat-panel-compact { padding: 16px 20px; }
+  .chat-box-compact { display: flex; flex-direction: column; height: 160px; }
+  .chat-box-compact .chat-messages { flex: 1; overflow-y: auto; padding-right: 4px; margin-bottom: 10px; font-size: 13px; }
+  .files-panel { min-height: 320px; }
+  .chat-msg { margin-bottom: 10px; font-size: 14px; }
+  .chat-msg .who { font-size: 12px; color: var(--accent); font-family: var(--mono); }
+  .chat-msg .file-tag { font-family: var(--mono); font-size: 12.5px; color: var(--text-dim); }
+  .list-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 12px; border-radius: 4px; cursor: pointer;
+  }
+  .list-item:hover { background: var(--panel-alt); }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--panel-alt); color: var(--text-dim); }
+  .badge.admin { color: var(--accent); }
+  .two-col { display: grid; grid-template-columns: 260px 1fr; gap: 20px; }
+  .sub-panel-title { font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; margin: 0 0 10px 0; }
+</style>
+</head>
+<body>
+
+<!-- ===================== AUTH SCREEN ===================== -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-title">// Save space, stay secure</div>
+    <h1 class="auth-heading" id="auth-heading">Sign in to Cloud<span>ion</span></h1>
+
+    <div id="login-form">
+      <div class="field"><label>Username</label><input type="text" id="login-username" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input type="password" id="login-password" autocomplete="current-password"></div>
+      <button class="btn-primary" onclick="doLogin()">Log in</button>
+      <div class="auth-switch">No account yet? <a onclick="showRegister()">Register</a></div>
+    </div>
+
+    <div id="register-form" style="display:none;">
+      <div class="field"><label>Username</label><input type="text" id="reg-username"></div>
+      <div class="field"><label>Password</label><input type="password" id="reg-password"></div>
+      <div class="field"><label>Confirm password</label><input type="password" id="reg-confirm"></div>
+      <button class="btn-primary" onclick="doRegister()">Create account</button>
+      <div class="auth-switch">Already have an account? <a onclick="showLogin()">Log in</a></div>
+    </div>
+
+    <div id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- ===================== APP SCREEN ===================== -->
+<div id="app-screen">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-name">Cloud<span>ion</span></div>
+      <div class="brand-user" id="whoami">—</div>
+    </div>
+    <nav>
+      <div class="nav-item active" data-view="personal">Personal Cloud</div>
+      <div class="nav-item" data-view="friends">Friends</div>
+      <div class="nav-item" data-view="onetoone">One-to-One</div>
+      <div class="nav-item" data-view="groups">Groups</div>
+      <div class="nav-item" data-view="global">Global Cloud</div>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn-secondary" style="width:100%" onclick="doLogout()">Log out</button>
+    </div>
+  </div>
+
+  <main>
+    <!-- PERSONAL -->
+    <section class="view active" id="view-personal">
+      <h2 class="view-title">Personal Cloud</h2>
+      <p class="view-sub">Private storage only you can access.</p>
+      <div class="panel">
+        <div class="row">
+          <input type="file" id="personal-file">
+          <input type="text" id="personal-filename" placeholder="save as (optional)">
+          <button class="btn-primary" onclick="personalUpload()">Upload</button>
+          <input type="text" id="personal-search" placeholder="search filename...">
+          <button class="btn-secondary" onclick="personalSearch()">Search</button>
+          <button class="btn-secondary" onclick="personalList()">Refresh</button>
+        </div>
+      </div>
+      <div class="panel"><div id="personal-files"></div></div>
+    </section>
+
+    <!-- FRIENDS -->
+    <section class="view" id="view-friends">
+      <h2 class="view-title">Friends</h2>
+      <p class="view-sub">Find people, send requests, and manage who you're connected with.</p>
+      <div class="two-col">
+        <div>
+          <div class="panel">
+            <p class="sub-panel-title">Find users</p>
+            <div class="row"><input type="text" id="friend-search-q" placeholder="username..."><button class="btn-secondary" onclick="searchUsers()">Search</button></div>
+            <div id="friend-search-results" style="margin-top:10px;"></div>
+          </div>
+          <div class="panel">
+            <p class="sub-panel-title">Incoming requests</p>
+            <div id="friend-requests"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <p class="sub-panel-title">Your friends</p>
+          <div id="friends-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ONE TO ONE -->
+    <section class="view" id="view-onetoone">
+      <h2 class="view-title">One-to-One</h2>
+      <p class="view-sub">Files shared with a friend, plus a quick chat on the side.</p>
+      <div class="two-col">
+        <div class="panel">
+          <p class="sub-panel-title">Conversations</p>
+          <div class="row">
+            <input type="text" id="new-conv-username" placeholder="friend's username">
+            <button class="btn-secondary" onclick="createConversation()">Open</button>
+          </div>
+          <div id="conversation-list" style="margin-top:14px;"></div>
+        </div>
+
+        <div id="conversation-panel" style="display:none;">
+          <p class="sub-panel-title" id="conversation-heading">Conversation</p>
+
+          <!-- Files: the main focus of this area -->
+          <div class="panel files-panel">
+            <div class="row">
+              <input type="file" id="conversation-file">
+              <input type="text" id="conversation-filename" placeholder="save as (optional)">
+              <button class="btn-primary" onclick="uploadConvFile()">Upload</button>
+              <input type="text" id="conversation-search" placeholder="search filename...">
+              <button class="btn-secondary" onclick="searchConvFiles()">Search</button>
+              <button class="btn-secondary" onclick="refreshConvFiles()">Refresh</button>
+            </div>
+            <div id="conversation-files" style="margin-top:14px;"></div>
+          </div>
+
+          <!-- Chat: secondary, compact -->
+          <div class="panel chat-panel-compact">
+            <p class="sub-panel-title">Chat</p>
+            <div class="chat-box-compact">
+              <div class="chat-messages" id="conversation-messages"></div>
+              <div class="row">
+                <input type="text" id="conversation-text" placeholder="type a message..." style="flex:1;">
+                <button class="btn-secondary" onclick="sendConvMessage()">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GROUPS -->
+    <section class="view" id="view-groups">
+      <h2 class="view-title">Groups</h2>
+      <p class="view-sub">Shared files with your group, plus a quick chat on the side.</p>
+      <div class="two-col">
+        <div class="panel">
+          <p class="sub-panel-title">Your groups</p>
+          <div class="row">
+            <input type="text" id="new-group-name" placeholder="group name">
+            <button class="btn-secondary" onclick="createGroup()">Create</button>
+          </div>
+          <div id="group-list" style="margin-top:14px;"></div>
+        </div>
+
+        <div id="group-panel" style="display:none;">
+          <p class="sub-panel-title" id="group-heading">Group</p>
+          <div class="row" style="margin-bottom:14px;">
+            <input type="text" id="group-add-username" placeholder="add member (admin only)">
+            <button class="btn-secondary" onclick="addGroupMember()">Add</button>
+          </div>
+          <div id="group-members" style="margin-bottom:16px;"></div>
+
+          <!-- Files: the main focus of this area -->
+          <div class="panel files-panel">
+            <div class="row">
+              <input type="file" id="group-file">
+              <input type="text" id="group-filename" placeholder="save as (optional)">
+              <button class="btn-primary" onclick="uploadGroupFile()">Upload</button>
+              <input type="text" id="group-search" placeholder="search filename...">
+              <button class="btn-secondary" onclick="searchGroupFiles()">Search</button>
+              <button class="btn-secondary" onclick="refreshGroupFiles()">Refresh</button>
+            </div>
+            <div id="group-files" style="margin-top:14px;"></div>
+          </div>
+
+          <!-- Chat: secondary, compact -->
+          <div class="panel chat-panel-compact">
+            <p class="sub-panel-title">Chat</p>
+            <div class="chat-box-compact">
+              <div class="chat-messages" id="group-messages"></div>
+              <div class="row">
+                <input type="text" id="group-text" placeholder="type a message..." style="flex:1;">
+                <button class="btn-secondary" onclick="sendGroupMessage()">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GLOBAL -->
+    <section class="view" id="view-global">
+      <h2 class="view-title">Global Cloud</h2>
+      <p class="view-sub">Shared with every registered user. You can only delete files you uploaded.</p>
+      <div class="panel">
+        <div class="row">
+          <input type="file" id="global-file">
+          <input type="text" id="global-filename" placeholder="save as (optional)">
+          <button class="btn-primary" onclick="globalUpload()">Upload</button>
+          <input type="text" id="global-search" placeholder="search filename...">
+          <button class="btn-secondary" onclick="globalSearch()">Search</button>
+          <button class="btn-secondary" onclick="globalList()">Refresh</button>
+        </div>
+      </div>
+      <div class="panel"><div id="global-files"></div></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const API = '/api';
+let TOKEN = localStorage.getItem('cc_token') || null;
+let USERNAME = localStorage.getItem('cc_username') || null;
+let ACTIVE_CONVERSATION = null;
+let ACTIVE_GROUP = null;
+let GROUPS_CACHE = [];
+
+function authHeaders(extra) {
+  const h = Object.assign({ 'Authorization': 'Bearer ' + TOKEN }, extra || {});
+  return h;
+}
+
+function getErrorMessage(data, fallback) {
+  if (!data) return fallback || 'Operation failed';
+  return data.MESSAGE || data.message || fallback || 'Operation failed';
+}
+
+async function api(method, path, body, isForm) {
+  const opts = { method, headers: {} };
+  if (TOKEN) opts.headers['Authorization'] = 'Bearer ' + TOKEN;
+  if (body && !isForm) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  } else if (isForm) {
+    opts.body = body;
+  }
+  let res;
+  try {
+    res = await fetch(API + path, opts);
+  } catch (err) {
+    return { ok: false, status: 0, data: { message: 'Network connection error' } };
+  }
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  if (res.status === 401 && TOKEN && !path.startsWith('/auth/login') && !path.startsWith('/auth/register')) {
+    doLogout();
+    showMsg('Your session has expired or is invalid. Please sign in again.', 'error');
+  }
+  return { ok: res.ok, status: res.status, data };
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('auth-msg');
+  el.innerHTML = '<div class="msg ' + (type || 'error') + '">' + text + '</div>';
+}
+function showLogin() {
+  document.getElementById('login-form').style.display = 'block';
+  document.getElementById('register-form').style.display = 'none';
+  document.getElementById('auth-heading').innerHTML = 'Sign in to <span>your storage</span>';
+  document.getElementById('auth-msg').innerHTML = '';
+}
+function showRegister() {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('register-form').style.display = 'block';
+  document.getElementById('auth-heading').innerHTML = 'Create <span>an account</span>';
+  document.getElementById('auth-msg').innerHTML = '';
+}
+
+async function doRegister() {
+  const username = document.getElementById('reg-username').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const confirmPassword = document.getElementById('reg-confirm').value;
+  const r = await api('POST', '/auth/register', { username, password, confirmPassword });
+  if (r.ok) {
+    showMsg('Account created. You can log in now.', 'ok');
+    showLogin();
+    document.getElementById('login-username').value = username;
+  } else {
+    showMsg(r.data.message || 'Registration failed', 'error');
+  }
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const r = await api('POST', '/auth/login', { username, password });
+  if (r.ok) {
+    TOKEN = r.data.token; USERNAME = r.data.username;
+    localStorage.setItem('cc_token', TOKEN);
+    localStorage.setItem('cc_username', USERNAME);
+    enterApp();
+  } else {
+    showMsg(r.data.message || 'Login failed', 'error');
+  }
+}
+
+function doLogout() {
+  TOKEN = null; USERNAME = null;
+  localStorage.removeItem('cc_token'); localStorage.removeItem('cc_username');
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  showLogin();
+}
+
+function enterApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('whoami').textContent = '~/' + USERNAME;
+  personalList();
+  loadFriends();
+  loadFriendRequests();
+  loadConversations();
+  loadGroups();
+  globalList();
+}
+
+document.querySelectorAll('.nav-item').forEach((item) => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach((i) => i.classList.remove('active'));
+    document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById('view-' + item.dataset.view).classList.add('active');
+  });
+});
+
+function humanSize(bytes) {
+  bytes = Number(bytes || 0);
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  if (bytes < 1024*1024*1024) return (bytes/1024/1024).toFixed(1) + ' MB';
+  return (bytes/1024/1024/1024).toFixed(2) + ' GB';
+}
+
+function renderFileTable(container, files, handlers) {
+  if (!files || !files.length) {
+    container.innerHTML = '<div class="empty-state">No files here yet.</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody>';
+  files.forEach((f) => {
+    const safeName = escapeHtml(f.name);
+    const viewBtn = handlers.view ? '<button class="link-btn" data-fname="' + safeName + '" onclick="' + handlers.view + '(this.dataset.fname)">View</button>' : '';
+    const dlBtn = handlers.download ? '<button class="link-btn" data-fname="' + safeName + '" onclick="' + handlers.download + '(this.dataset.fname)">Download</button>' : '';
+    const delBtn = handlers.del ? '<button class="link-btn danger" data-fname="' + safeName + '" onclick="' + handlers.del + '(this.dataset.fname)">Delete</button>' : '';
+    html += '<tr><td class="file-name">' + safeName + '</td><td>' + humanSize(f.size) + '</td><td>' + escapeHtml(f.modified || '') + '</td>' +
+      '<td class="cell-actions">' + viewBtn + dlBtn + delBtn + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function parseFileList(data, prefix) {
+  const count = Number(data.COUNT || 0);
+  const files = [];
+  for (let i = 0; i < count; i++) {
+    files.push({
+      name: data[prefix + '_' + i + '_NAME'],
+      size: data[prefix + '_' + i + '_SIZE'],
+      modified: data[prefix + '_' + i + '_MODIFIED'],
+    });
+  }
+  return files;
+}
+
+/* ---------------- Personal Cloud ---------------- */
+async function personalList() {
+  const r = await api('GET', '/personal/files');
+  renderFileTable(document.getElementById('personal-files'), parseFileList(r.data, 'FILE'), { view: 'personalView', download: 'personalDownload', del: 'personalDelete' });
+}
+async function personalSearch() {
+  const term = document.getElementById('personal-search').value.trim();
+  const r = await api('GET', '/personal/files/search?term=' + encodeURIComponent(term));
+  renderFileTable(document.getElementById('personal-files'), parseFileList(r.data, 'RESULT'), { view: 'personalView', download: 'personalDownload', del: 'personalDelete' });
+}
+async function personalUpload() {
+  const fileInput = document.getElementById('personal-file');
+  if (!fileInput.files.length) return alert('Choose a file first');
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  const customName = document.getElementById('personal-filename').value.trim();
+  if (customName) fd.append('filename', customName);
+  const r = await api('POST', '/personal/files', fd, true);
+  if (!r.ok) alert(getErrorMessage(r.data, 'Upload failed'));
+  fileInput.value = ''; document.getElementById('personal-filename').value = '';
+  personalList();
+}
+function personalDownload(name) { window.open(API + '/personal/files/' + encodeURIComponent(name) + '/download?token=' + TOKEN, '_blank'); }
+function personalView(name) { window.open(API + '/personal/files/' + encodeURIComponent(name) + '/view?token=' + TOKEN, '_blank'); }
+async function personalDelete(name) {
+  if (!confirm('Delete ' + name + '?')) return;
+  const r = await api('DELETE', '/personal/files/' + encodeURIComponent(name));
+  if (!r.ok) alert(getErrorMessage(r.data, 'Delete failed'));
+  personalList();
+}
+
+/* ---------------- Friends ---------------- */
+async function loadFriends() {
+  const r = await api('GET', '/friends');
+  const el = document.getElementById('friends-list');
+  if (!r.data.friends || !r.data.friends.length) { el.innerHTML = '<div class="empty-state">No friends yet.</div>'; return; }
+  el.innerHTML = r.data.friends.map((f) => {
+    const safeF = escapeHtml(f);
+    return '<div class="list-item">' + safeF + '<span><span class="badge" style="margin-right:8px;">friend</span><button class="link-btn" data-user="' + safeF + '" onclick="startFriendChat(this.dataset.user)">Message</button></span></div>';
+  }).join('');
+}
+
+function startFriendChat(username) {
+  document.querySelectorAll('.nav-item').forEach((i) => i.classList.remove('active'));
+  document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
+  const navItem = document.querySelector('.nav-item[data-view="onetoone"]');
+  if (navItem) navItem.classList.add('active');
+  const viewElem = document.getElementById('view-onetoone');
+  if (viewElem) viewElem.classList.add('active');
+  const targetInput = document.getElementById('new-conv-username');
+  if (targetInput) targetInput.value = username;
+  createConversation();
+}
+async function loadFriendRequests() {
+  const r = await api('GET', '/friends/requests');
+  const el = document.getElementById('friend-requests');
+  if (!r.data.requests || !r.data.requests.length) { el.innerHTML = '<div class="empty-state">No pending requests.</div>'; return; }
+  el.innerHTML = r.data.requests.map((req) =>
+    '<div class="list-item">' + req.from_username +
+    '<span><button class="link-btn" onclick="respondRequest(' + req.id + ',true)">Accept</button>' +
+    '<button class="link-btn danger" onclick="respondRequest(' + req.id + ',false)">Reject</button></span></div>'
+  ).join('');
+}
+async function respondRequest(id, accept) {
+  await api('POST', '/friends/requests/' + id + '/' + (accept ? 'accept' : 'reject'));
+  loadFriendRequests(); loadFriends();
+}
+async function searchUsers() {
+  const q = document.getElementById('friend-search-q').value.trim();
+  const r = await api('GET', '/friends/search?q=' + encodeURIComponent(q));
+  const el = document.getElementById('friend-search-results');
+  if (!r.data.users || !r.data.users.length) { el.innerHTML = '<div class="empty-state">No users found.</div>'; return; }
+  el.innerHTML = r.data.users.map((u) => '<div class="list-item">' + u + '<button class="link-btn" onclick="sendFriendRequest(\'' + u + '\')">Add friend</button></div>').join('');
+}
+async function sendFriendRequest(username) {
+  const r = await api('POST', '/friends/requests', { username });
+  alert(r.data.message || (r.ok ? 'Sent' : 'Failed'));
+}
+
+/* ---------------- One-to-One ---------------- */
+async function loadConversations() {
+  const r = await api('GET', '/conversations');
+  const el = document.getElementById('conversation-list');
+  if (!r.data.conversations || !r.data.conversations.length) { el.innerHTML = '<div class="empty-state">No conversations yet.</div>'; return; }
+  el.innerHTML = r.data.conversations.map((c) =>
+    '<div class="list-item" onclick="openConversation(' + c.id + ',\'' + c.with_username + '\')">' + c.with_username + '</div>'
+  ).join('');
+}
+async function createConversation() {
+  const username = document.getElementById('new-conv-username').value.trim();
+  if (!username) return;
+  const r = await api('POST', '/conversations', { username });
+  if (!r.ok) return alert(r.data.message || 'Could not start conversation');
+  loadConversations();
+  openConversation(r.data.conversationId, username);
+}
+async function openConversation(id, withUser) {
+  ACTIVE_CONVERSATION = id;
+  document.getElementById('conversation-panel').style.display = 'block';
+  document.getElementById('conversation-heading').textContent = 'Conversation with ' + withUser;
+  await refreshConvFiles();
+  await refreshConversationMessages();
+}
+async function refreshConvFiles() {
+  if (!ACTIVE_CONVERSATION) return;
+  const r = await api('GET', '/conversations/' + ACTIVE_CONVERSATION + '/files');
+  renderFileTable(document.getElementById('conversation-files'), parseFileList(r.data, 'FILE'), { view: 'viewConvFile', download: 'downloadConvFile', del: 'deleteConvFile' });
+}
+async function searchConvFiles() {
+  const term = document.getElementById('conversation-search').value.trim();
+  const r = await api('GET', '/conversations/' + ACTIVE_CONVERSATION + '/files/search?term=' + encodeURIComponent(term));
+  renderFileTable(document.getElementById('conversation-files'), parseFileList(r.data, 'RESULT'), { view: 'viewConvFile', download: 'downloadConvFile', del: 'deleteConvFile' });
+}
+async function deleteConvFile(name) {
+  if (!confirm('Delete ' + name + '?')) return;
+  await api('DELETE', '/conversations/' + ACTIVE_CONVERSATION + '/files/' + encodeURIComponent(name));
+  refreshConvFiles();
+}
+function formatTime(dt) {
+  if (!dt) return '';
+  try {
+    const parts = dt.split(' ');
+    return parts[1] ? parts[1].slice(0, 5) : dt;
+  } catch (e) { return dt; }
+}
+
+async function refreshConversationMessages() {
+  if (!ACTIVE_CONVERSATION) return;
+  const r = await api('GET', '/conversations/' + ACTIVE_CONVERSATION + '/messages');
+  const el = document.getElementById('conversation-messages');
+  const msgs = r.data.messages || [];
+  el.innerHTML = msgs.map((m) => {
+    const timeStr = m.created_at ? '<span style="font-size:10px;color:var(--text-dim);margin-left:6px;">' + escapeHtml(formatTime(m.created_at)) + '</span>' : '';
+    if (m.message_type === 'file') {
+      const safeName = escapeHtml(m.file_name);
+      return '<div class="chat-msg"><span class="who">' + escapeHtml(m.sender) + '</span>' + timeStr + '<br><span class="file-tag">📎 ' + safeName + '</span> <button class="link-btn" data-fname="' + safeName + '" onclick="downloadConvFile(this.dataset.fname)">download</button></div>';
+    }
+    return '<div class="chat-msg"><span class="who">' + escapeHtml(m.sender) + '</span>' + timeStr + '<br>' + escapeHtml(m.content) + '</div>';
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+async function sendConvMessage() {
+  const input = document.getElementById('conversation-text');
+  if (!input.value.trim()) return;
+  await api('POST', '/conversations/' + ACTIVE_CONVERSATION + '/messages', { content: input.value });
+  input.value = '';
+  refreshConversationMessages();
+}
+async function uploadConvFile() {
+  const fileInput = document.getElementById('conversation-file');
+  if (!fileInput.files.length) return;
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  const customName = document.getElementById('conversation-filename').value.trim();
+  if (customName) fd.append('filename', customName);
+  const r = await api('POST', '/conversations/' + ACTIVE_CONVERSATION + '/files', fd, true);
+  if (!r.ok) alert(getErrorMessage(r.data, 'Upload failed'));
+  fileInput.value = '';
+  document.getElementById('conversation-filename').value = '';
+  refreshConvFiles();
+  refreshConversationMessages();
+}
+function downloadConvFile(name) { window.open(API + '/conversations/' + ACTIVE_CONVERSATION + '/files/' + encodeURIComponent(name) + '/download?token=' + TOKEN, '_blank'); }
+function viewConvFile(name) { window.open(API + '/conversations/' + ACTIVE_CONVERSATION + '/files/' + encodeURIComponent(name) + '/view?token=' + TOKEN, '_blank'); }
+
+
+
+/* ---------------- Groups ---------------- */
+async function loadGroups() {
+  const r = await api('GET', '/groups');
+  GROUPS_CACHE = r.data.groups || [];
+  const el = document.getElementById('group-list');
+  if (!GROUPS_CACHE.length) { el.innerHTML = '<div class="empty-state">No groups yet.</div>'; return; }
+  el.innerHTML = GROUPS_CACHE.map((g) =>
+    '<div class="list-item" onclick="openGroup(' + g.id + ')">' + g.name + (g.role === 'admin' ? '<span class="badge admin">admin</span>' : '') + '</div>'
+  ).join('');
+}
+async function createGroup() {
+  const name = document.getElementById('new-group-name').value.trim();
+  if (!name) return;
+  const r = await api('POST', '/groups', { name });
+  if (!r.ok) return alert(r.data.message || 'Could not create group');
+  document.getElementById('new-group-name').value = '';
+  loadGroups();
+}
+async function openGroup(id) {
+  ACTIVE_GROUP = id;
+  const group = GROUPS_CACHE.find((g) => g.id === id);
+  document.getElementById('group-panel').style.display = 'block';
+  document.getElementById('group-heading').textContent = group ? group.name : ('Group ' + id);
+  await refreshGroupMembers();
+  await refreshGroupFiles();
+  await refreshGroupMessages();
+}
+async function refreshGroupMembers() {
+  const r = await api('GET', '/groups/' + ACTIVE_GROUP + '/members');
+  const el = document.getElementById('group-members');
+  const members = r.data.members || [];
+  el.innerHTML = members.map((m) =>
+    '<span class="badge ' + (m.role === 'admin' ? 'admin' : '') + '" style="margin-right:6px;">' + m.username + (m.role === 'admin' ? ' · admin' : '') + '</span>'
+  ).join('');
+}
+async function addGroupMember() {
+  const username = document.getElementById('group-add-username').value.trim();
+  if (!username) return;
+  const r = await api('POST', '/groups/' + ACTIVE_GROUP + '/members', { username });
+  if (!r.ok) alert(r.data.message || 'Failed to add member');
+  document.getElementById('group-add-username').value = '';
+  refreshGroupMembers();
+}
+async function refreshGroupFiles() {
+  if (!ACTIVE_GROUP) return;
+  const r = await api('GET', '/groups/' + ACTIVE_GROUP + '/files');
+  renderFileTable(document.getElementById('group-files'), parseFileList(r.data, 'FILE'), { view: 'viewGroupFile', download: 'downloadGroupFile', del: 'deleteGroupFile' });
+}
+async function searchGroupFiles() {
+  const term = document.getElementById('group-search').value.trim();
+  const r = await api('GET', '/groups/' + ACTIVE_GROUP + '/files/search?term=' + encodeURIComponent(term));
+  renderFileTable(document.getElementById('group-files'), parseFileList(r.data, 'RESULT'), { view: 'viewGroupFile', download: 'downloadGroupFile', del: 'deleteGroupFile' });
+}
+async function deleteGroupFile(name) {
+  if (!confirm('Delete ' + name + '? (only the group admin can do this)')) return;
+  const r = await api('DELETE', '/groups/' + ACTIVE_GROUP + '/files/' + encodeURIComponent(name));
+  if (!r.ok) alert(r.data.message || 'Not allowed');
+  refreshGroupFiles();
+}
+async function refreshGroupMessages() {
+  const r = await api('GET', '/groups/' + ACTIVE_GROUP + '/messages');
+  const el = document.getElementById('group-messages');
+  const msgs = r.data.messages || [];
+  el.innerHTML = msgs.map((m) => {
+    const timeStr = m.created_at ? '<span style="font-size:10px;color:var(--text-dim);margin-left:6px;">' + escapeHtml(formatTime(m.created_at)) + '</span>' : '';
+    if (m.message_type === 'file') {
+      const safeName = escapeHtml(m.file_name);
+      return '<div class="chat-msg"><span class="who">' + escapeHtml(m.sender) + '</span>' + timeStr + '<br><span class="file-tag">📎 ' + safeName + '</span> <button class="link-btn" data-fname="' + safeName + '" onclick="downloadGroupFile(this.dataset.fname)">download</button></div>';
+    }
+    return '<div class="chat-msg"><span class="who">' + escapeHtml(m.sender) + '</span>' + timeStr + '<br>' + escapeHtml(m.content) + '</div>';
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+async function sendGroupMessage() {
+  const input = document.getElementById('group-text');
+  if (!input.value.trim()) return;
+  await api('POST', '/groups/' + ACTIVE_GROUP + '/messages', { content: input.value });
+  input.value = '';
+  refreshGroupMessages();
+}
+async function uploadGroupFile() {
+  const fileInput = document.getElementById('group-file');
+  if (!fileInput.files.length) return;
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  const customName = document.getElementById('group-filename').value.trim();
+  if (customName) fd.append('filename', customName);
+  const r = await api('POST', '/groups/' + ACTIVE_GROUP + '/files', fd, true);
+  if (!r.ok) alert(getErrorMessage(r.data, 'Upload failed'));
+  fileInput.value = '';
+  document.getElementById('group-filename').value = '';
+  refreshGroupFiles();
+  refreshGroupMessages();
+}
+function downloadGroupFile(name) { window.open(API + '/groups/' + ACTIVE_GROUP + '/files/' + encodeURIComponent(name) + '/download?token=' + TOKEN, '_blank'); }
+function viewGroupFile(name) { window.open(API + '/groups/' + ACTIVE_GROUP + '/files/' + encodeURIComponent(name) + '/view?token=' + TOKEN, '_blank'); }
+
+/* ---------------- Global Cloud ---------------- */
+async function globalList() {
+  const r = await api('GET', '/global/files');
+  renderFileTable(document.getElementById('global-files'), parseFileList(r.data, 'FILE'), { view: 'globalView', download: 'globalDownload', del: 'globalDelete' });
+}
+async function globalSearch() {
+  const term = document.getElementById('global-search').value.trim();
+  const r = await api('GET', '/global/files/search?term=' + encodeURIComponent(term));
+  renderFileTable(document.getElementById('global-files'), parseFileList(r.data, 'RESULT'), { view: 'globalView', download: 'globalDownload', del: 'globalDelete' });
+}
+async function globalUpload() {
+  const fileInput = document.getElementById('global-file');
+  if (!fileInput.files.length) return alert('Choose a file first');
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  const customName = document.getElementById('global-filename').value.trim();
+  if (customName) fd.append('filename', customName);
+  const r = await api('POST', '/global/files', fd, true);
+  if (!r.ok) alert(getErrorMessage(r.data, 'Upload failed'));
+  fileInput.value = ''; document.getElementById('global-filename').value = '';
+  globalList();
+}
+function globalDownload(name) { window.open(API + '/global/files/' + encodeURIComponent(name) + '/download?token=' + TOKEN, '_blank'); }
+function globalView(name) { window.open(API + '/global/files/' + encodeURIComponent(name) + '/view?token=' + TOKEN, '_blank'); }
+async function globalDelete(name) {
+  if (!confirm('Delete ' + name + '? (only allowed if you uploaded it)')) return;
+  const r = await api('DELETE', '/global/files/' + encodeURIComponent(name));
+  if (!r.ok) alert(r.data.message || 'Not allowed');
+  globalList();
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+// Enter key to send messages in chat
+const convInput = document.getElementById('conversation-text');
+if (convInput) {
+  convInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); sendConvMessage(); }
+  });
+}
+const grpInput = document.getElementById('group-text');
+if (grpInput) {
+  grpInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); sendGroupMessage(); }
+  });
+}
+
+// Auto-refresh messages every 3 seconds for active chats
+setInterval(() => {
+  const onetoone = document.getElementById('view-onetoone');
+  if (ACTIVE_CONVERSATION && onetoone && onetoone.classList.contains('active')) {
+    refreshConversationMessages();
+  }
+  const groups = document.getElementById('view-groups');
+  if (ACTIVE_GROUP && groups && groups.classList.contains('active')) {
+    refreshGroupMessages();
+  }
+}, 3000);
+
+// Restore session if a token is already saved, and verify it with the server
+if (TOKEN && USERNAME) {
+  api('GET', '/auth/me').then((r) => {
+    if (r.ok) {
+      enterApp();
+    } else {
+      doLogout();
+      showMsg('Your session has expired. Please sign in again.', 'error');
+    }
+  });
+}
+</script>
+</body>
+</html>

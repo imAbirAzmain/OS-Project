@@ -46,6 +46,10 @@ filesystem_dispatch()
             filesystem_move
             return 0
             ;;
+        open)
+            filesystem_open
+            return 0
+            ;;
         *)
             return 1
             ;;
@@ -512,5 +516,66 @@ filesystem_move()
         echo
         return 1
     fi
+}
+
+############################################################
+# open: Display file contents (cat functionality)
+# Primarily .txt and .az files
+# Syntax: open <filename>
+############################################################
+filesystem_open()
+{
+    if [[ $ARG_COUNT -lt 1 ]]; then
+        echo
+        echo "Error: Missing filename."
+        echo "Usage:"
+        echo "  open <filename>   - Display file contents"
+        echo
+        return 1
+    fi
+
+    local TARGET="${ARGS[0]}"
+
+    if [[ ! -e "$TARGET" ]]; then
+        echo
+        echo "Error: File not found: $TARGET"
+        echo
+        return 1
+    fi
+
+    if [[ -d "$TARGET" ]]; then
+        echo
+        echo "Error: Cannot open directory: $TARGET"
+        echo
+        return 1
+    fi
+
+    if [[ ! -r "$TARGET" ]]; then
+        echo
+        echo "Error: Permission denied: $TARGET"
+        echo
+        return 1
+    fi
+
+    # Check for binary file to prevent dumping binary data into the terminal
+    if [[ -s "$TARGET" ]] && file -b --mime "$TARGET" 2>/dev/null | grep -q "charset=binary"; then
+        echo
+        echo "Error: Cannot open binary file: $TARGET"
+        echo "The open command is for text files (primarily .txt and .az files)."
+        echo
+        return 1
+    fi
+
+    if [[ -s "$TARGET" ]]; then
+        cat "$TARGET"
+        # Ensure trailing newline if file doesn't end with one
+        local LAST_BYTE
+        LAST_BYTE="$(tail -c 1 "$TARGET" 2>/dev/null)"
+        if [[ -n "$LAST_BYTE" && "$LAST_BYTE" != $'\n' ]]; then
+            echo
+        fi
+    fi
+
+    return 0
 }
 

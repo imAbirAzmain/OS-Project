@@ -1,0 +1,11 @@
+{
+  "id": "1",
+  "name": "g1",
+  "admin": "neo",
+  "admin_id": "neo",
+  "members": [
+    "neo",
+    "xoxo"
+  ],
+  "created_at": "2026-09-05 17:18:45"
+}

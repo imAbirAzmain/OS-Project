@@ -1,0 +1,18 @@
+{
+  "username": "abir",
+  "password_hash": "$2a$12$Gr2VezJINniN9jkpHwDVMeo9vTw.UR6UIqIo6uxXLGn5jn7uzzpIK",
+  "friends": [
+    "neo"
+  ],
+  "incoming_requests": [],
+  "outgoing_requests": [
+    {
+      "id": "1789673290306-a51419f9feb9c",
+      "from_username": "abir",
+      "to_username": "neo",
+      "created_at": "2026-09-17T19:28:10.306Z",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-09-15 08:53:49"
+}

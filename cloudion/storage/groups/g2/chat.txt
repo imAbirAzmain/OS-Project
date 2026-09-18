@@ -1,2 +1,0 @@
-[vro]: hello g2, vro
-[vro]: hello bond ,vro g2

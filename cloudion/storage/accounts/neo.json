@@ -1,0 +1,26 @@
+{
+  "username": "neo",
+  "password_hash": "$2a$12$Tvae.7wGuWT/de48HHQJD.eYKP8Y1UE9U9jX4u4Tf0wfAnvA0xZy.",
+  "created_at": "2026-09-05 04:45:43",
+  "friends": [
+    "abir",
+    "xoxo"
+  ],
+  "incoming_requests": [
+    {
+      "id": "1",
+      "from_username": "xoxo",
+      "to_username": "neo",
+      "status": "accepted",
+      "created_at": "2026-09-05 17:18:10"
+    },
+    {
+      "id": "1789673290306-a51419f9feb9c",
+      "from_username": "abir",
+      "to_username": "neo",
+      "created_at": "2026-09-17T19:28:10.306Z",
+      "status": "accepted"
+    }
+  ],
+  "outgoing_requests": []
+}
