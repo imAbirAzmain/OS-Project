@@ -518,9 +518,8 @@ filesystem_move()
     fi
 }
 
-############################################################
 # open: Display file contents (cat functionality)
-# Primarily .txt and .az files
+# Primarily .txt, .az, and .sh files
 # Syntax: open <filename>
 ############################################################
 filesystem_open()
@@ -529,12 +528,15 @@ filesystem_open()
         echo
         echo "Error: Missing filename."
         echo "Usage:"
-        echo "  open <filename>   - Display file contents"
+        echo "  open <filename>   - Display file contents (.txt, .az, .sh)"
         echo
         return 1
     fi
 
     local TARGET="${ARGS[0]}"
+    if [[ ! -e "$TARGET" && -e "${ARGS[*]}" ]]; then
+        TARGET="${ARGS[*]}"
+    fi
 
     if [[ ! -e "$TARGET" ]]; then
         echo
@@ -557,14 +559,24 @@ filesystem_open()
         return 1
     fi
 
-    # Check for binary file to prevent dumping binary data into the terminal
-    if [[ -s "$TARGET" ]] && file -b --mime "$TARGET" 2>/dev/null | grep -q "charset=binary"; then
-        echo
-        echo "Error: Cannot open binary file: $TARGET"
-        echo "The open command is for text files (primarily .txt and .az files)."
-        echo
-        return 1
-    fi
+    # Check for binary file to prevent dumping binary data into the terminal.
+    # Text files (.txt, .az, .sh) are explicitly supported.
+    local EXT="${TARGET##*.}"
+    local LOWER_EXT="$(printf '%s' "$EXT" | tr '[:upper:]' '[:lower:]')"
+    case "$LOWER_EXT" in
+        txt|az|sh)
+            # Explicitly supported text formats (.txt, .az, .sh)
+            ;;
+        *)
+            if [[ -s "$TARGET" ]] && file -b --mime "$TARGET" 2>/dev/null | grep -q "charset=binary"; then
+                echo
+                echo "Error: Cannot open binary file: $TARGET"
+                echo "The open command is for text files (primarily .txt, .az, and .sh files)."
+                echo
+                return 1
+            fi
+            ;;
+    esac
 
     if [[ -s "$TARGET" ]]; then
         cat "$TARGET"
@@ -578,4 +590,3 @@ filesystem_open()
 
     return 0
 }
-

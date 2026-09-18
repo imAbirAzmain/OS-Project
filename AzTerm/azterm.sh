@@ -69,9 +69,9 @@ while true
 do
     # Update prompt to show current directory
     CURRENT_DIR="$(get_prompt_path "$PWD")"
-    DYNAMIC_PROMPT="${COLOR_ORANGE}az> ${COLOR_RESET}"
+    DYNAMIC_PROMPT=$'\001'"${COLOR_ORANGE}"$'\002'"az> "$'\001'"${COLOR_RESET}"$'\002'
 
-    read -rp "$DYNAMIC_PROMPT" USER_COMMAND
+    azterm_read_command "$DYNAMIC_PROMPT" || break
 
     if [[ -z "$USER_COMMAND" ]]
     then

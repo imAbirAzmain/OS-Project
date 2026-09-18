@@ -89,6 +89,22 @@ history_init()
         touch "$HISTORY_FILE"
 
     fi
+
+    # Enable Bash history and configure it for clean Readline navigation
+    set -o history
+    export HISTCONTROL=ignorespace:erasedups
+    export HISTFILE="$HISTORY_FILE"
+
+    # Load persistent history into Readline
+    history -c
+    if [[ -f "$HISTORY_FILE" ]]; then
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && history -s "$line"
+        done < "$HISTORY_FILE"
+    fi
+
+    # Disable history during startup and command execution
+    set +o history
 }
 
 
@@ -143,6 +159,15 @@ history_add()
     ########################################################
 
     printf '%s\n' "$COMMAND_TO_ADD" >> "$HISTORY_FILE"
+
+
+    ########################################################
+    # Add command to active Readline history for arrow keys.
+    ########################################################
+
+    set -o history
+    history -s "$COMMAND_TO_ADD"
+    set +o history
 
 
     ########################################################

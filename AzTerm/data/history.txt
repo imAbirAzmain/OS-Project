@@ -132,3 +132,37 @@ cloud restart
 cloud status
 cloud stop
 exit
+help
+version
+clear
+where am i
+show files --depth 1
+go bijoy
+help
+open test.txt
+open tct.txt
+delete test.txt
+cloud
+cloud start
+cloud restart
+cloud status
+cloud stop
+cloud status
+cloud start
+cloud logs 6 cat
+cloud logs 50 auth
+cloud stop
+open abir.az
+open abir.az
+exit
+open /tmp/azterm_test_dir/script.sh
+open /tmp/azterm_test_dir/test.az
+open /tmp/azterm_test_dir/readme.txt
+open "/tmp/azterm_test_dir/my space file.txt"
+open "/tmp/azterm_test_dir/my space file.txt"
+open "/tmp/azterm_test_dir/my space file.txt"
+open /tmp/azterm_test_dir/script.sh
+open /tmp/azterm_test_dir/test.az
+open /tmp/azterm_test_dir/readme.txt
+open /tmp/azterm_test_dir/test.az
+exit

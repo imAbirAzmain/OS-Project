@@ -314,20 +314,28 @@ Error: File already exists: note.txt
 
 ### open <filename>
 
-Display the contents of a file (cat functionality). Primarily used for `.txt` and `.az` script files.
+Display the contents of a file (cat functionality). Primarily used for `.txt`, `.az`, and `.sh` files.
 
 ```
 az:~> open note.txt
 Hello from AzTerm!
 ```
 
-Script file example:
+Script file examples:
 
 ```
 az:~> open abir.az
 make folder bijoy2
 go bijoy2
 make file inside.txt
+```
+
+Shell script example:
+
+```
+az:~> open script.sh
+#!/bin/bash
+echo "Hello from script"
 ```
 
 Error handling:

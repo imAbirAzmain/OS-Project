@@ -547,3 +547,24 @@ get_prompt_path()
     fi
 }
 
+
+############################################################
+# Read user command with Readline (Up/Down arrow history)
+############################################################
+azterm_read_command()
+{
+    local PROMPT="$1"
+    USER_COMMAND=""
+
+    # Enable history for Readline line editing & arrow navigation
+    set -o history
+    export HISTCONTROL=ignorespace
+
+    # Read user input with Readline (-e)
+    # The leading space ensures this read command is ignored by HISTCONTROL
+     read -e -r -p "$PROMPT" USER_COMMAND || return 1
+
+    # Disable history while executing internal script commands
+    set +o history
+    return 0
+}
