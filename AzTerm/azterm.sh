@@ -53,8 +53,10 @@ source "$SCRIPT_DIR/lib/cloudion.sh"
 # Initialize
 ############################################################
 
-# Set up history file path relative to script directory
-HISTORY_FILE="$SCRIPT_DIR/$HISTORY_FILE"
+# Set up history file path relative to script directory if not already absolute
+if [[ "$HISTORY_FILE" != /* ]]; then
+    HISTORY_FILE="$SCRIPT_DIR/$HISTORY_FILE"
+fi
 
 # Initialize history system
 history_init

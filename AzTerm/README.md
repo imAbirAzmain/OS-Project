@@ -6,10 +6,12 @@ A custom Bash terminal/shell written entirely in Bash.
 
 - Dedicated AzTerm terminal window on macOS
 - Dark professional terminal theme with yellow/orange accents
-- Persistent command history
+- Persistent command history with interactive Up/Down arrow navigation
+- File viewing with `open` command (`.txt`, `.az`, `.sh`)
 - `.az` scripting language for automation
 - Built-in script editor
 - Program execution capability
+- Integrated Cloudion server management suite
 - Clean modular architecture
 - 100% Bash implementation
 
@@ -67,11 +69,12 @@ The color palette is defined in `config/config.sh` and reused by the startup ban
 - `cloud stop` - Stop the Cloudion mini cloud server
 - `cloud restart` - Restart Cloudion
 - `cloud status` - Show current Cloudion status
-- `cloud logs [N]` - Show recent Cloudion logs
+- `cloud storage` - Show storage usage and capacity report
+- `cloud logs [N] [category]` - Show recent Cloudion logs
 - `cloud info` - Show Cloudion configuration and process info
 - `cloud help` - Show Cloudion management help
 
-> AzTerm acts as the management interface for the existing Cloudion server. Cloudion remains a separate project and remains independent of the AzTerm Bash shell.
+> AzTerm acts as the management interface for Cloudion. Cloudion operates as an independent service with its own backend and storage architecture.
 
 ### Navigation
 
@@ -85,6 +88,7 @@ The color palette is defined in `config/config.sh` and reused by the startup ban
 - `show files` - List files in current directory
 - `show files <folder>` - List files in a specific folder
 - `show files --depth N` - List files recursively up to depth N
+- `open <filename>` - Display text/script file contents (`.txt`, `.az`, `.sh`)
 - `make folder <name>` - Create a new folder
 - `make file <name>` - Create a new file
 - `delete <name>` - Delete a file or folder
@@ -99,6 +103,7 @@ The color palette is defined in `config/config.sh` and reused by the startup ban
 ### History
 
 - `history` - Display command history
+- **Arrow Keys (`Up` / `Down`)** - Interactively cycle through command history directly at the prompt
 
 ### Scripts
 
@@ -120,9 +125,10 @@ AzTerm/
 │   ├── utils.sh             # Utility functions
 │   ├── parser.sh            # Command parser
 │   ├── commands.sh          # General built-in commands
-│   ├── filesystem.sh        # Filesystem operations
-│   ├── history.sh           # History management
-│   └── script.sh            # Script engine
+│   ├── filesystem.sh        # Filesystem operations & file viewing
+│   ├── history.sh           # History management & arrow key navigation
+│   ├── script.sh            # Script engine & editor
+│   └── cloudion.sh          # Cloudion management integration
 ├── data/
 │   ├── history.txt          # Command history file
 │   └── settings.conf        # Settings file
@@ -147,10 +153,11 @@ AzTerm uses a modular architecture with clear separation of concerns:
 
 - **parser.sh**: Tokenizes user input and routes commands
 - **commands.sh**: Handles general commands (help, version, exit, run)
-- **filesystem.sh**: Handles directory navigation and file operations
-- **history.sh**: Manages command history persistence
-- **script.sh**: Implements the .az scripting language
-- **utils.sh**: Provides shared utility functions
+- **filesystem.sh**: Handles directory navigation, file operations, and `open` content display
+- **history.sh**: Manages persistent history and interactive readline arrow navigation
+- **script.sh**: Implements the `.az` scripting language and editor
+- **cloudion.sh**: Integrates Cloudion lifecycle management, status, and log monitoring
+- **utils.sh**: Provides shared styling, table rendering, and utility functions
 
 See [DeveloperGuide.md](docs/DeveloperGuide.md) for detailed architecture information.
 

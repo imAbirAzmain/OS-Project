@@ -27,12 +27,12 @@ Command Router (dispatcher)
 Module Handlers
 ├── commands.sh (general)
 ├── filesystem.sh (navigation/files)
-├── history.sh (history)
+├── history.sh (history & arrow navigation)
 ├── script.sh (scripting)
 ├── cloudion.sh (Cloudion management)
 └── execution & output
     ↓
-Cloudion Mini Cloud Server
+Cloudion Backend & Modular Bash Scripts
 ```
 
 ### Cloudion Management Architecture
@@ -47,15 +47,16 @@ Cloudion Mini Cloud Server
               +--------+--------+
               |                 |
        Normal Commands      cloudion.sh
-                                  |
-                                  v
-                              Cloudion
-                                  |
-                                  v
-                            Mini Cloud Server
+                                |
+                                v
+                       Cloudion Dispatcher
+                     (scripts/cloud/cloud.sh)
+                                |
+                                v
+                    Cloudion Backend & Scripts
 ```
 
-AzTerm is the Bash management interface. Cloudion remains a separate server project. The `cloudion.sh` module is responsible for safe process detection, PID tracking, log handling, and OS compatibility checks. The Cloudion server itself is not rewritten into Bash.
+AzTerm serves as the native terminal management interface for Cloudion. Cloudion operates as an independent service (Node.js/Express backend + SQLite database) whose operational engine is a modular collection of dedicated Bash scripts. AzTerm communicates with Cloudion through its unified `scripts/cloud/cloud.sh` dispatcher, parsing machine-readable `KEY=VALUE` responses into AzTerm's styled UI boxes.
 
 ### Design Principles
 
@@ -189,11 +190,13 @@ commands_dispatch() {
 - Record commands
 - Display history
 - Persist to disk
+- Support interactive readline arrow navigation (`Up`/`Down` keys)
 
 **Key Functions:**
-- `history_init()` - Initialize history file
+- `history_init()` - Initialize history file and ensure parent directory exists
 - `history_add()` - Record a command
-- `history_display()` - Show history
+- `history_display()` - Show formatted history table
+- `history_read_line()` - Interactive input reader with arrow key traversal
 
 **File Format:**
 - One command per line
@@ -217,17 +220,16 @@ commands_dispatch() {
 
 **Implements:**
 - `cloud start` / `cloud stop` / `cloud restart`
-- `cloud status` / `cloud logs` / `cloud info`
-- OS compatibility validation
-- PID detection and cleanup
-- Log file access and process verification
+- `cloud status` / `cloud storage` / `cloud logs` / `cloud info` / `cloud help`
+- Environment and path resolution (locates `cloudion/` sibling directory)
+- Script execution through Cloudion's `scripts/cloud/cloud.sh` dispatcher
+- Key-Value output parsing and rendering in AzTerm dark-theme box layouts
 
 **Key Responsibilities:**
-- Detect whether the Cloudion binary is runnable on the current OS
-- Resolve the real Cloudion project path and binary location
-- Start the server only when it is not already running
-- Verify the process exists before reporting success
-- Keep all Cloudion-specific logic isolated from AzTerm's general commands
+- Interface cleanly with Cloudion without duplicating backend or storage logic
+- Verify Cloudion presence and automatically ensure script execution permissions
+- Manage detached background processes cleanly via tracked PID files
+- Bash 3.2+ compatibility for macOS system Bash (no associative arrays or namerefs)
 
 ### lib/utils.sh - Shared Utilities
 

@@ -155,14 +155,10 @@ cloud stop
 open abir.az
 open abir.az
 exit
-open /tmp/azterm_test_dir/script.sh
-open /tmp/azterm_test_dir/test.az
-open /tmp/azterm_test_dir/readme.txt
-open "/tmp/azterm_test_dir/my space file.txt"
-open "/tmp/azterm_test_dir/my space file.txt"
-open "/tmp/azterm_test_dir/my space file.txt"
-open /tmp/azterm_test_dir/script.sh
-open /tmp/azterm_test_dir/test.az
-open /tmp/azterm_test_dir/readme.txt
-open /tmp/azterm_test_dir/test.az
+open abir.az
+cloud status
+cloud storage
+cloud logs 10
+help
 exit
+

@@ -51,24 +51,23 @@ Goodbye.
 
 ## Cloudion Management
 
-AzTerm can manage the existing Cloudion server through a native Bash command layer.
+AzTerm provides native terminal controls to manage the Cloudion cloud server through its modular script dispatcher (`scripts/cloud/cloud.sh`).
 
 ### cloud start
 
-Start Cloudion if it is not already running.
+Start the Cloudion service in the background if it is not already running.
 
 ```bash
 az:~> cloud start
 Starting Cloudion...
 Cloudion started successfully.
 PID: 42831
+Port: 4000
 ```
-
-If the host is not compatible with the Cloudion binary, AzTerm reports the platform mismatch instead of trying to run it.
 
 ### cloud stop
 
-Stop a running Cloudion process.
+Stop a running Cloudion server process safely.
 
 ```bash
 az:~> cloud stop
@@ -78,80 +77,100 @@ Cloudion stopped successfully.
 
 ### cloud restart
 
-Restart Cloudion safely.
+Restart the Cloudion server cleanly.
 
 ```bash
 az:~> cloud restart
 Restarting Cloudion...
 Cloudion stopped.
 Cloudion started successfully.
+PID: 43105
 ```
 
 ### cloud status
 
-Display the current Cloudion state.
+Display comprehensive live status for the Cloudion server including PID, uptime, resource consumption, and network metrics.
 
 ```bash
 az:~> cloud status
-========================================
-         CLOUDION STATUS
-========================================
+┌────────────────────────────────────────┐
+│             CLOUDION STATUS            │
+└────────────────────────────────────────┘
+  State       : RUNNING
+  PID         : 42831
+  Port        : 4000
+  Uptime      : 01:24:12
+  CPU Usage   : 0.4%
+  Memory      : 42.8 MB
+  Disk Free   : 148.2 GB
+```
 
-Status       : RUNNING
-PID          : 42831
-Port         : 8080
-Uptime       : 00:02:17
-Server       : minicloud-server
+### cloud storage
 
-========================================
+Display storage utilization metrics across all Cloudion partitions (Personal, One-to-One, Groups, Global, and Backups).
+
+```bash
+az:~> cloud storage
+┌────────────────────────────────────────┐
+│            CLOUDION STORAGE            │
+└────────────────────────────────────────┘
+  Total Used  : 14.6 MB
+  Users       : 8.2 MB
+  1-to-1      : 2.1 MB
+  Groups      : 3.4 MB
+  Global      : 0.9 MB
+  Backups     : 12.0 MB
 ```
 
 ### cloud logs
 
-Display recent log output from the real Cloudion log file.
+Display recent log output from Cloudion. You can optionally specify the number of lines and a specific category (`server`, `auth`, `file`, `group`, `chat`).
 
 ```bash
-az:~> cloud logs
-========================================
-          CLOUDION LOGS
-========================================
-[recent log output]
+az:~> cloud logs 20
+┌────────────────────────────────────────┐
+│             CLOUDION LOGS              │
+└────────────────────────────────────────┘
+[recent log entries...]
+
+az:~> cloud logs 10 auth
 ```
 
 ### cloud info
 
-Display the Cloudion project and runtime details discovered from the project itself.
+Display Cloudion environment configurations, paths, database, and process details.
 
 ```bash
 az:~> cloud info
-========================================
-         CLOUDION INFORMATION
-========================================
-Project      : Cloudion
-Server       : minicloud-server
-Location     : /path/to/cloudion
-Port         : 8080
-PID File     : /path/to/AzTerm/data/cloudion.pid
-Log File     : /path/to/cloudion/logs/server.log
-========================================
+┌────────────────────────────────────────┐
+│          CLOUDION INFORMATION          │
+└────────────────────────────────────────┘
+  Project     : Cloudion
+  Version     : 2.0.0
+  Backend     : Node.js / Express
+  Database    : SQLite (cloud.db)
+  Location    : /path/to/cloudion
+  Port        : 4000
+  PID File    : /path/to/cloudion/.cloudion.pid
+  Log File    : /path/to/cloudion/logs/server.log
 ```
 
 ### cloud help
 
-Show the Cloudion management commands.
+Show all available Cloudion management subcommands.
 
 ```bash
 az:~> cloud help
-Cloudion Management
-===================
-cloud start
-cloud stop
-cloud restart
-cloud status
-cloud logs
-cloud info
-cloud help
-```
+Cloudion Management Commands
+=============================
+  cloud start              - Start Cloudion server
+  cloud stop               - Stop Cloudion server
+  cloud restart            - Restart Cloudion server
+  cloud status             - Show server status & metrics
+  cloud storage            - Show storage usage breakdown
+  cloud logs [N] [cat]     - View recent server/category logs
+  cloud info               - Show configuration & environment
+  cloud help               - Show this help reference
 
 ## General Commands
 
@@ -466,6 +485,14 @@ History is automatically:
 - Saved to `data/history.txt`
 - Preserved between sessions
 - Numbered for reference
+
+### Interactive History Navigation (Arrow Keys)
+
+AzTerm supports native interactive readline history traversal directly at the prompt:
+
+- Press **`Up Arrow` (`↑`)**: Recalls the immediately preceding command in history. Pressing repeatedly traverses backwards through earlier commands.
+- Press **`Down Arrow` (`↓`)**: Navigates forward toward more recent commands or clears back to a fresh prompt.
+- The recalled command can be edited directly before pressing Enter.
 
 ## Scripting
 

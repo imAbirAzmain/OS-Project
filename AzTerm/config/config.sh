@@ -24,7 +24,8 @@ COLOR_DIM=$'\033[2;37m'
 COLOR_BG_DARK=$'\033[48;5;16m'
 COLOR_SUCCESS=$'\033[38;5;214m'
 
-HISTORY_FILE="data/history.txt"
+AZTERM_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+HISTORY_FILE="${AZTERM_DIR}/data/history.txt"
 
 SCRIPT_DIRECTORY="scripts"
 
@@ -32,4 +33,4 @@ SCRIPT_DIRECTORY="scripts"
 # CLOUDION_PATH: absolute path to the cloudion project directory.
 # Leave unset to use the default (sibling directory: ../cloudion).
 # Example override: export CLOUDION_PATH="/path/to/your/cloudion"
-CLOUDION_PATH="${SCRIPT_DIR%/*}/cloudion"
+CLOUDION_PATH="${AZTERM_DIR%/*}/cloudion"

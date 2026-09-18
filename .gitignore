@@ -29,3 +29,6 @@ cloudion/logs/group.log
 cloudion/storage/temporary/uploads/*
 !cloudion/storage/temporary/uploads/.gitkeep
 /tmp/
+
+# Workspace root stray directories
+/data/
