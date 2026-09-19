@@ -46,10 +46,19 @@ script_execute()
 
     local SCRIPT_FILE="${ARGS[0]}"
 
+    # Resolve script path if not found in current directory
+    if [[ ! -f "$SCRIPT_FILE" ]]; then
+        if [[ -n "$AZTERM_DIR" ]] && [[ -f "$AZTERM_DIR/$SCRIPT_FILE" ]]; then
+            SCRIPT_FILE="$AZTERM_DIR/$SCRIPT_FILE"
+        elif [[ -n "$AZTERM_DIR" ]] && [[ -f "$AZTERM_DIR/scripts/$SCRIPT_FILE" ]]; then
+            SCRIPT_FILE="$AZTERM_DIR/scripts/$SCRIPT_FILE"
+        fi
+    fi
+
     # Check if file exists
     if [[ ! -f "$SCRIPT_FILE" ]]; then
         echo
-        echo "Error: Script file not found: $SCRIPT_FILE"
+        echo "Error: Script file not found: ${ARGS[0]}"
         echo
         return 1
     fi

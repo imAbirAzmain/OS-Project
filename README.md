@@ -100,6 +100,7 @@ A modular cloud platform featuring:
 ├── AzTerm/                     # Custom Bash Terminal implementation
 │   ├── README.md               # AzTerm overview & quick reference
 │   ├── azterm.sh               # Main entry point & window launcher
+│   ├── calculator.az           # Language demonstration script
 │   ├── install.sh              # Installation script
 │   ├── uninstall.sh            # Uninstallation script
 │   ├── update.sh               # Update script
@@ -110,7 +111,8 @@ A modular cloud platform featuring:
 │   │   ├── filesystem.sh       # Filesystem navigation, manipulation, and open viewer
 │   │   ├── history.sh          # History persistence & interactive arrow navigation
 │   │   ├── parser.sh           # Tokenizer & command router
-│   │   ├── script.sh           # .az script interpreter & editor
+│   │   ├── script.sh           # .az script runner & editor
+│   │   ├── interpreter.sh      # Language engine (math, variables, loops)
 │   │   ├── cloudion.sh         # Cloudion management integration layer
 │   │   └── utils.sh            # Banner rendering, tables, and formatting utilities
 │   ├── data/
@@ -121,6 +123,8 @@ A modular cloud platform featuring:
 │   │   └── DeveloperGuide.md   # AzTerm internal architecture guide
 │   ├── assets/                 # ASCII logo and visual banners
 │   └── scripts/                # AzTerm sample & user automation scripts
+│       ├── .gitkeep
+│       └── calculator.az
 │
 └── cloudion/                   # Cloud storage & Bash automation platform
     ├── README.md               # Detailed Cloudion technical documentation
@@ -190,6 +194,11 @@ A modular cloud platform featuring:
    az> open test.txt
    az> show files
    az> go ..
+   
+   # Custom Programming Language & Scripting
+   az> script calculator.az
+   az> calc 10 != 5
+   az> 10 > 2
    ```
    *Use the **Up (`↑`)** and **Down (`↓`)** arrow keys at any time to recall previous commands.*
 
