@@ -245,6 +245,9 @@ cloudion_start()
         [[ -n "$_CK_PID" ]] && cloudion_box_row "PID"     "$_CK_PID"
         cloudion_box_row "Port"    "4000"
         cloudion_box_row "URL"     "http://localhost:4000"
+        local LOCAL_IP
+        LOCAL_IP="$(ipconfig getifaddr en0 2>/dev/null || ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)"
+        [[ -n "$LOCAL_IP" ]] && cloudion_box_row "Wi-Fi IP" "${LOCAL_IP}:4000"
         cloudion_box_row "Logs"    "cloud logs"
     else
         cloudion_box_line "FAILED TO START" "${COLOR_RED}"
@@ -323,6 +326,9 @@ cloudion_status()
         cloudion_box_row "Server" "RUNNING ●" "${COLOR_SUCCESS}"
         [[ -n "$_CK_PID" ]] && cloudion_box_row "PID" "$_CK_PID"
         cloudion_box_row "URL" "http://localhost:4000"
+        local LOCAL_IP
+        LOCAL_IP="$(ipconfig getifaddr en0 2>/dev/null || ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)"
+        [[ -n "$LOCAL_IP" ]] && cloudion_box_row "Wi-Fi IP" "${LOCAL_IP}:4000"
     else
         cloudion_box_row "Server" "STOPPED ○" "${COLOR_RED}"
     fi
@@ -490,6 +496,9 @@ cloudion_info()
     [[ -n "$_CK_UPTIME" ]] && cloudion_box_row "Uptime"  "$_CK_UPTIME"
     cloudion_box_row "Port"    "4000"
     cloudion_box_row "URL"     "http://localhost:4000"
+    local LOCAL_IP
+    LOCAL_IP="$(ipconfig getifaddr en0 2>/dev/null || ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)"
+    [[ -n "$LOCAL_IP" ]] && cloudion_box_row "Wi-Fi IP" "${LOCAL_IP}:4000"
 
     cloudion_box_separator
     cloudion_box_line "Paths" "${COLOR_DIM}"

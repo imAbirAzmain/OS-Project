@@ -41,6 +41,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ status: 'FAILURE', message: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Cloudion backend listening on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Cloudion backend listening on port ${PORT} (accessible at http://localhost:${PORT} and local network IP)`);
 });

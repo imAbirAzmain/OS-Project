@@ -11,8 +11,9 @@ A comprehensive guide to using AzTerm v2.
 5. [Program Execution](#program-execution)
 6. [History](#history)
 7. [Scripting](#scripting)
-8. [Examples](#examples)
-9. [Troubleshooting](#troubleshooting)
+8. [Language, Math & Control Flow](#language-math--control-flow)
+9. [Examples](#examples)
+10. [Troubleshooting](#troubleshooting)
 
 ## Getting Started
 
@@ -563,6 +564,165 @@ az-script> make file main.sh
 az-script> go ..
 az-script> :save
 Script saved: setup.az
+```
+
+## Language, Math & Control Flow
+
+AzTerm features a rich scripting interpreter supporting formatted output, mathematical operations, variables, conditions, and control flow loops. These can be executed directly at the interactive terminal prompt or inside `.az` script files.
+
+### print <"text">
+
+Print text or variable values to the terminal. The argument must be enclosed in double inverted commas (`"..."`).
+
+```bash
+az:~> print "Abir XOSS"
+Abir XOSS
+
+az:~> x = 10
+az:~> print "Value is: $x"
+Value is: 10
+```
+
+Error handling:
+```bash
+az:~> print Hello
+Error: Text to print must be enclosed in double quotes.
+Usage:
+  print "message"
+```
+
+### Basic Mathematical Operations
+
+AzTerm supports basic arithmetic, increment/decrement, and relational/comparison operations:
+- **Arithmetic**: `+`, `-`, `*`, `/`
+- **Increment / Decrement**: `++`, `--` (prefix or postfix, e.g. `x++`, `i--`)
+- **Relational / Comparison**: `>`, `<`, `>=`, `<=`, `==`
+
+#### Variable Assignment & Arithmetic
+```bash
+az:~> x = 10 + 5
+az:~> y = x * 2
+az:~> z = y / 6
+az:~> z++
+az:~> print "z is $z"
+z is 6
+```
+
+#### Standalone Calculation (`calc` or direct expression)
+```bash
+az:~> calc 5 + 3
+8
+
+az:~> calc 10 > 2
+true
+
+az:~> calc 5 == 5
+true
+
+az:~> calc 5 == 6
+false
+```
+
+Error handling (division by zero):
+```bash
+az:~> calc 10 / 0
+Error: Division by zero.
+```
+
+### Conditional Execution: if ... else if ... else ... end if
+
+Execute commands conditionally based on comparisons or expressions.
+
+Syntax:
+```bash
+if condition
+    ...
+else if condition
+    ...
+else
+    ...
+end if
+```
+
+Example:
+```bash
+az:~> score = 85
+az:~> if score >= 90
+...> print "Grade: A"
+...> else if score >= 80
+...> print "Grade: B"
+...> else
+...> print "Grade: C"
+...> end if
+Grade: B
+```
+
+### For Loop: for var=val1,val2,... ... end for
+
+Iterate over a list or range of values.
+
+Syntax:
+```bash
+for var=val1,val2,val3,...
+    ...
+end for
+```
+
+Example:
+```bash
+az:~> for i=1,2,3,4,5
+...> print "Abir XOSS"
+...> end for
+Abir XOSS
+Abir XOSS
+Abir XOSS
+Abir XOSS
+Abir XOSS
+```
+
+Loop variable inspection:
+```bash
+az:~> for i=1,2,3
+...> print "Count: $i"
+...> end for
+Count: 1
+Count: 2
+Count: 3
+```
+
+### While Loop: while condition ... end while
+
+Repeat a block of commands as long as the condition evaluates to true.
+
+Syntax:
+```bash
+while condition
+    ...
+end while
+```
+
+Example:
+```bash
+az:~> i = 1
+az:~> while i <= 3
+...> print "Step: $i"
+...> i++
+...> end while
+Step: 1
+Step: 2
+Step: 3
+```
+
+Countdown with decrement:
+```bash
+az:~> count = 3
+az:~> while count > 0
+...> print "Countdown: $count"
+...> count--
+...> end while
+Countdown: 3
+Countdown: 2
+Countdown: 1
 ```
 
 ## Examples

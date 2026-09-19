@@ -1,0 +1,38 @@
+a = 10
+b = 5
+
+sum = a + b
+print "Sum: $sum"
+
+diff = a - b
+print "Difference: $diff"
+
+prod = a * b
+print "Product: $prod"
+
+div = a / b
+print "Division: $div"
+
+count = 1
+count++
+print "Increment: $count"
+count--
+print "Decrement: $count"
+
+if a > b
+print "a is greater than b"
+else if a == b
+print "a equals b"
+else
+print "a is smaller than b"
+end if
+
+for i=1,2,3,4,5
+print "Abir XOSS"
+end for
+
+n = 1
+while n <= 3
+print "Step $n"
+n++
+end while

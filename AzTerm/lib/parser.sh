@@ -123,6 +123,11 @@ route_command()
         return 0
     fi
 
+    # Try interpreter module (print, math, assignments, calc)
+    if interpreter_dispatch; then
+        return 0
+    fi
+
     # Unknown command
     echo
     echo "Unknown command: $COMMAND"

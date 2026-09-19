@@ -59,49 +59,26 @@ script_execute()
     echo
 
     # Execute the script
-    local LINE_NUM=0
-    local LINE_CONTENT
-    local COMMAND_RESULT=0
-
-    while IFS= read -r LINE_CONTENT; do
-        ((LINE_NUM++))
-
-        # Skip empty lines
-        if [[ -z "$LINE_CONTENT" ]]; then
-            continue
-        fi
-
-        # Skip comment lines (lines starting with #)
-        if [[ "$LINE_CONTENT" =~ ^[[:space:]]*# ]]; then
-            continue
-        fi
-
-        # Trim leading/trailing whitespace
-        LINE_CONTENT="$(echo "$LINE_CONTENT" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-
-        # Skip if empty after trimming
-        if [[ -z "$LINE_CONTENT" ]]; then
-            continue
-        fi
-
-        echo "[$LINE_NUM] $LINE_CONTENT"
-
-        # Parse and execute the command
-        parse_command "$LINE_CONTENT"
-        COMMAND_RESULT=$?
-
-        # Check if command was handled
-        if [[ $COMMAND_RESULT -ne 0 ]]; then
-            echo
-            echo "Script Error"
-            echo "File: $SCRIPT_FILE"
-            echo "Line: $LINE_NUM"
-            echo "Command: $LINE_CONTENT"
-            echo
-            return 1
-        fi
-
+    local -a SCRIPT_LINES=()
+    while IFS= read -r LINE_CONTENT || [[ -n "$LINE_CONTENT" ]]; do
+        SCRIPT_LINES+=("$LINE_CONTENT")
     done < "$SCRIPT_FILE"
+
+    AZ_SCRIPT_FILE="$SCRIPT_FILE"
+    AZ_IN_SCRIPT=1
+    az_execute_block_lines "${SCRIPT_LINES[@]}"
+    local COMMAND_RESULT=$?
+    AZ_IN_SCRIPT=0
+    AZ_SCRIPT_FILE=""
+
+    # Check if script succeeded
+    if [[ $COMMAND_RESULT -ne 0 ]]; then
+        echo
+        echo "Script Error"
+        echo "File: $SCRIPT_FILE"
+        echo
+        return 1
+    fi
 
     echo
     echo "Script completed successfully."

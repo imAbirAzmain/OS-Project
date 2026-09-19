@@ -162,3 +162,5 @@ cloud logs 10
 help
 exit
 
+cloud
+cloud start
