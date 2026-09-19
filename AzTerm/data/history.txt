@@ -4,3 +4,13 @@ script calculator.az
 calc 10 + 5
 calc 10 != 5
 help
+cloud start
+where am i
+go ..
+go cloudion
+go backups
+show files
+cloud status
+cloud start
+cloud status
+cloud stop

@@ -314,8 +314,11 @@
         </div>
 
         <div id="group-panel" style="display:none;">
-          <p class="sub-panel-title" id="group-heading">Group</p>
-          <div class="row" style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <p class="sub-panel-title" id="group-heading" style="margin:0;">Group</p>
+            <button id="group-delete-btn" class="btn-danger" style="display:none;padding:5px 12px;font-size:12px;" onclick="deleteActiveGroup()">Delete Group</button>
+          </div>
+          <div class="row" id="group-add-member-row" style="margin-bottom:14px;">
             <input type="text" id="group-add-username" placeholder="add member (admin only)">
             <button class="btn-secondary" onclick="addGroupMember()">Add</button>
           </div>
@@ -561,8 +564,15 @@ async function loadFriends() {
   if (!r.data.friends || !r.data.friends.length) { el.innerHTML = '<div class="empty-state">No friends yet.</div>'; return; }
   el.innerHTML = r.data.friends.map((f) => {
     const safeF = escapeHtml(f);
-    return '<div class="list-item">' + safeF + '<span><span class="badge" style="margin-right:8px;">friend</span><button class="link-btn" data-user="' + safeF + '" onclick="startFriendChat(this.dataset.user)">Message</button></span></div>';
+    return '<div class="list-item">' + safeF + '<span><span class="badge" style="margin-right:8px;">friend</span><button class="link-btn" data-user="' + safeF + '" onclick="startFriendChat(this.dataset.user)">Message</button><button class="link-btn danger" style="margin-left:8px;" data-user="' + safeF + '" onclick="removeFriend(this.dataset.user)">Remove</button></span></div>';
   }).join('');
+}
+
+async function removeFriend(username) {
+  if (!confirm('Remove ' + username + ' from your friends list?')) return;
+  const r = await api('DELETE', '/friends/' + encodeURIComponent(username));
+  if (!r.ok) return alert(r.data.message || 'Failed to remove friend');
+  loadFriends();
 }
 
 function startFriendChat(username) {
@@ -637,8 +647,9 @@ async function searchConvFiles() {
   renderFileTable(document.getElementById('conversation-files'), parseFileList(r.data, 'RESULT'), { view: 'viewConvFile', download: 'downloadConvFile', del: 'deleteConvFile' });
 }
 async function deleteConvFile(name) {
-  if (!confirm('Delete ' + name + '?')) return;
-  await api('DELETE', '/conversations/' + ACTIVE_CONVERSATION + '/files/' + encodeURIComponent(name));
+  if (!confirm('Delete ' + name + '? (only the sender who uploaded this file can delete it)')) return;
+  const r = await api('DELETE', '/conversations/' + ACTIVE_CONVERSATION + '/files/' + encodeURIComponent(name));
+  if (!r.ok) alert(r.data.message || 'Not allowed to delete this file');
   refreshConvFiles();
 }
 function formatTime(dt) {
@@ -713,6 +724,11 @@ async function openGroup(id) {
   const group = GROUPS_CACHE.find((g) => g.id === id);
   document.getElementById('group-panel').style.display = 'block';
   document.getElementById('group-heading').textContent = group ? group.name : ('Group ' + id);
+  const isAdmin = group && group.role === 'admin';
+  const deleteBtn = document.getElementById('group-delete-btn');
+  if (deleteBtn) deleteBtn.style.display = isAdmin ? 'inline-block' : 'none';
+  const addMemberRow = document.getElementById('group-add-member-row');
+  if (addMemberRow) addMemberRow.style.display = isAdmin ? 'flex' : 'none';
   await refreshGroupMembers();
   await refreshGroupFiles();
   await refreshGroupMessages();
@@ -721,9 +737,16 @@ async function refreshGroupMembers() {
   const r = await api('GET', '/groups/' + ACTIVE_GROUP + '/members');
   const el = document.getElementById('group-members');
   const members = r.data.members || [];
-  el.innerHTML = members.map((m) =>
-    '<span class="badge ' + (m.role === 'admin' ? 'admin' : '') + '" style="margin-right:6px;">' + m.username + (m.role === 'admin' ? ' · admin' : '') + '</span>'
-  ).join('');
+  const group = GROUPS_CACHE.find((g) => g.id === ACTIVE_GROUP);
+  const isAdmin = group && group.role === 'admin';
+  el.innerHTML = members.map((m) => {
+    const safeName = escapeHtml(m.username);
+    const badge = '<span class="badge ' + (m.role === 'admin' ? 'admin' : '') + '">' + safeName + (m.role === 'admin' ? ' · admin' : '') + '</span>';
+    const removeBtn = (isAdmin && m.role !== 'admin')
+      ? '<button class="link-btn danger" style="margin-left:4px;font-size:11px;" data-user="' + safeName + '" onclick="removeGroupMember(this.dataset.user)" title="Remove member">✕</button>'
+      : '';
+    return '<span style="display:inline-flex;align-items:center;margin-right:8px;margin-bottom:6px;background:var(--card);padding:2px 8px;border-radius:14px;border:1px solid var(--border);">' + badge + removeBtn + '</span>';
+  }).join('');
 }
 async function addGroupMember() {
   const username = document.getElementById('group-add-username').value.trim();
@@ -732,6 +755,20 @@ async function addGroupMember() {
   if (!r.ok) alert(r.data.message || 'Failed to add member');
   document.getElementById('group-add-username').value = '';
   refreshGroupMembers();
+}
+async function removeGroupMember(username) {
+  if (!confirm('Remove member "' + username + '" from this group?')) return;
+  const r = await api('DELETE', '/groups/' + ACTIVE_GROUP + '/members/' + encodeURIComponent(username));
+  if (!r.ok) alert(r.data.message || 'Failed to remove member');
+  refreshGroupMembers();
+}
+async function deleteActiveGroup() {
+  if (!confirm('Are you sure you want to delete this group? All group files will be archived.')) return;
+  const r = await api('DELETE', '/groups/' + ACTIVE_GROUP);
+  if (!r.ok) return alert(r.data.message || 'Failed to delete group');
+  ACTIVE_GROUP = null;
+  document.getElementById('group-panel').style.display = 'none';
+  loadGroups();
 }
 async function refreshGroupFiles() {
   if (!ACTIVE_GROUP) return;
@@ -744,7 +781,7 @@ async function searchGroupFiles() {
   renderFileTable(document.getElementById('group-files'), parseFileList(r.data, 'RESULT'), { view: 'viewGroupFile', download: 'downloadGroupFile', del: 'deleteGroupFile' });
 }
 async function deleteGroupFile(name) {
-  if (!confirm('Delete ' + name + '? (only the group admin can do this)')) return;
+  if (!confirm('Delete ' + name + '? (only the sender who uploaded this file can delete it)')) return;
   const r = await api('DELETE', '/groups/' + ACTIVE_GROUP + '/files/' + encodeURIComponent(name));
   if (!r.ok) alert(r.data.message || 'Not allowed');
   refreshGroupFiles();

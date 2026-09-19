@@ -7,6 +7,7 @@ const {
   listOutgoingRequests,
   respondToFriendRequest,
   addFriendRelation,
+  removeFriendRelation,
   isFriend,
 } = require('../services/fsStore');
 
@@ -62,11 +63,24 @@ function respondToRequest(req, res, accept) {
   return res.json({ status: 'SUCCESS', message: accept ? 'Friend request accepted' : 'Friend request rejected' });
 }
 
+function removeFriend(req, res) {
+  const { username } = req.params;
+  if (!username) {
+    return res.status(400).json({ status: 'FAILURE', message: 'Target username is required' });
+  }
+  if (!isFriend(req.user.username, username)) {
+    return res.status(400).json({ status: 'FAILURE', message: 'User is not in your friends list' });
+  }
+  removeFriendRelation(req.user.username, username);
+  return res.json({ status: 'SUCCESS', message: 'Friend removed successfully' });
+}
+
 module.exports = {
   searchUsers,
   listFriends,
   listIncomingRequestsForUser,
   sendRequest,
+  removeFriend,
   accept: (req, res) => respondToRequest(req, res, true),
   reject: (req, res) => respondToRequest(req, res, false),
 };

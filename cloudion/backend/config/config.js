@@ -6,6 +6,7 @@ module.exports = {
   PROJECT_ROOT,
   SCRIPTS_ROOT: path.join(PROJECT_ROOT, 'scripts'),
   STORAGE_ROOT: path.join(PROJECT_ROOT, 'storage'),
+  BACKUPS_ROOT: path.join(PROJECT_ROOT, 'backups'),
   UPLOAD_STAGING_DIR: path.join(PROJECT_ROOT, 'storage', 'temporary', 'uploads'),
   SERVER_OWNER_USERNAME: process.env.CLOUDION_OWNER || 'root',
   PORT: process.env.PORT || 4000,

@@ -11,6 +11,11 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 [[ $# -ge 1 ]] || { echo "Usage: $(basename "$0") <group_id>" >&2; exit "$EXIT_INVALID_ARGUMENT"; }
 group_id="$1"
 group_root="${STORAGE_ROOT}/groups/group_${group_id}"
+group_target_name="group_${group_id}"
+if [[ ! -d "$group_root" && -d "${STORAGE_ROOT}/groups/${group_id}" ]]; then
+    group_root="${STORAGE_ROOT}/groups/${group_id}"
+    group_target_name="${group_id}"
+fi
 [[ -d "$group_root" ]] || die "$EXIT_FILE_NOT_FOUND" "No storage found for group: $group_id"
 
 archive_dir="${BACKUPS_ROOT}/deleted_groups"
@@ -18,11 +23,14 @@ ensure_dir "$archive_dir" 0750
 timestamp="$(date -u +'%Y%m%dT%H%M%SZ')"
 archive_path="${archive_dir}/group_${group_id}_${timestamp}.tar.gz"
 
-if ! tar -czf "$archive_path" -C "${STORAGE_ROOT}/groups" "group_${group_id}"; then
+if ! tar -czf "$archive_path" -C "${STORAGE_ROOT}/groups" "$group_target_name"; then
     die "$EXIT_STORAGE_ERROR" "Failed to archive group storage for: $group_id"
 fi
 if ! rm -rf -- "$group_root"; then
     die "$EXIT_STORAGE_ERROR" "Failed to remove live storage for group: $group_id"
+fi
+if [[ "$group_target_name" == "group_${group_id}" && -d "${STORAGE_ROOT}/groups/${group_id}" ]]; then
+    rm -rf -- "${STORAGE_ROOT}/groups/${group_id}" || true
 fi
 
 log_event "group" "GROUP_STORAGE_DELETE" "system" "group_id=${group_id} archive=${archive_path}"

@@ -14,9 +14,6 @@ if [[ ! "$group_id" =~ ^[0-9]+$ ]]; then
     die "$EXIT_INVALID_ARGUMENT" "group_id must be numeric: $group_id"
 fi
 group_root="${STORAGE_ROOT}/groups/group_${group_id}"
-if [[ -d "$group_root" ]]; then
-    die "$EXIT_GENERAL_ERROR" "Storage already exists for group: $group_id"
-fi
 ensure_dir "${group_root}/files" 0750
 log_event "group" "GROUP_STORAGE_CREATE" "system" "group_id=${group_id} path=${group_root}"
 emit STATUS SUCCESS

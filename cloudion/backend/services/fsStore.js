@@ -45,7 +45,11 @@ function userRequestsPath(username) {
 }
 
 function groupDir(groupId) {
-  return path.join(GROUPS_ROOT, String(groupId));
+  const namedDir = path.join(GROUPS_ROOT, `group_${groupId}`);
+  if (fs.existsSync(namedDir)) return namedDir;
+  const numericDir = path.join(GROUPS_ROOT, String(groupId));
+  if (fs.existsSync(numericDir)) return numericDir;
+  return namedDir;
 }
 
 function groupMetaPath(groupId) {
@@ -144,6 +148,14 @@ function addFriendRelation(userA, userB) {
   const bFriends = getUserFriends(userB);
   saveUserFriends(userA, [...aFriends, userB]);
   saveUserFriends(userB, [...bFriends, userA]);
+  return true;
+}
+
+function removeFriendRelation(userA, userB) {
+  const aFriends = getUserFriends(userA).filter((u) => u !== userB);
+  const bFriends = getUserFriends(userB).filter((u) => u !== userA);
+  saveUserFriends(userA, aFriends);
+  saveUserFriends(userB, bFriends);
   return true;
 }
 
@@ -413,6 +425,85 @@ function deleteGlobalOwner(filename) {
   writeJson(globalOwnersFile(), owners);
 }
 
+function deleteGroupRecord(groupId) {
+  const metaPath = groupMetaPath(groupId);
+  if (fs.existsSync(metaPath)) {
+    fs.rmSync(metaPath, { force: true });
+  }
+  const numericDir = path.join(GROUPS_ROOT, String(groupId));
+  if (fs.existsSync(numericDir)) {
+    fs.rmSync(numericDir, { recursive: true, force: true });
+  }
+  return true;
+}
+
+function conversationOwnersFile(conversationId) {
+  const dir = conversationStorageDir(conversationId);
+  ensureDir(dir);
+  return path.join(dir, '.owners.json');
+}
+
+function setConversationFileOwner(conversationId, filename, username) {
+  const owners = readJson(conversationOwnersFile(conversationId), {});
+  owners[filename] = username;
+  writeJson(conversationOwnersFile(conversationId), owners);
+}
+
+function getConversationFileOwner(conversationId, filename) {
+  const owners = readJson(conversationOwnersFile(conversationId), {});
+  if (owners[filename]) return owners[filename];
+
+  const parts = String(conversationId).split('__');
+  if (parts.length === 2) {
+    const conv = getConversation(parts[0], parts[1]);
+    if (conv && Array.isArray(conv.messages)) {
+      const match = conv.messages
+        .filter((m) => m.message_type === 'file' && (m.file_name === filename || path.basename(m.relative_path || '') === filename))
+        .pop();
+      if (match && match.sender) return match.sender;
+    }
+  }
+  return null;
+}
+
+function deleteConversationFileOwner(conversationId, filename) {
+  const owners = readJson(conversationOwnersFile(conversationId), {});
+  delete owners[filename];
+  writeJson(conversationOwnersFile(conversationId), owners);
+}
+
+function groupOwnersFile(groupId) {
+  const dir = groupDir(groupId);
+  ensureDir(dir);
+  return path.join(dir, '.owners.json');
+}
+
+function setGroupFileOwner(groupId, filename, username) {
+  const owners = readJson(groupOwnersFile(groupId), {});
+  owners[filename] = username;
+  writeJson(groupOwnersFile(groupId), owners);
+}
+
+function getGroupFileOwner(groupId, filename) {
+  const owners = readJson(groupOwnersFile(groupId), {});
+  if (owners[filename]) return owners[filename];
+
+  const msgs = getGroupMessages(groupId);
+  if (Array.isArray(msgs)) {
+    const match = msgs
+      .filter((m) => m.message_type === 'file' && (m.file_name === filename || path.basename(m.relative_path || '') === filename))
+      .pop();
+    if (match && match.sender) return match.sender;
+  }
+  return null;
+}
+
+function deleteGroupFileOwner(groupId, filename) {
+  const owners = readJson(groupOwnersFile(groupId), {});
+  delete owners[filename];
+  writeJson(groupOwnersFile(groupId), owners);
+}
+
 module.exports = {
   ensureUser,
   createUserAccount,
@@ -426,6 +517,7 @@ module.exports = {
   getUserFriends,
   saveUserFriends,
   addFriendRelation,
+  removeFriendRelation,
   isFriend,
   createConversation,
   getConversation,
@@ -435,7 +527,11 @@ module.exports = {
   conversationMessages,
   isConversationParticipant,
   conversationStorageDir,
+  setConversationFileOwner,
+  getConversationFileOwner,
+  deleteConversationFileOwner,
   createGroupRecord,
+  deleteGroupRecord,
   ensureGroupStorage,
   listGroupsForUser,
   getGroup,
@@ -445,6 +541,9 @@ module.exports = {
   getGroupMessages,
   addGroupMessage,
   addGroupFileMessage,
+  setGroupFileOwner,
+  getGroupFileOwner,
+  deleteGroupFileOwner,
   setGlobalOwner,
   getGlobalOwner,
   deleteGlobalOwner,

@@ -7,4 +7,5 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 [[ $# -ge 3 ]] || { echo "Usage: $(basename "$0") <conversation_id> <relative_path> <actor>" >&2; exit "$EXIT_INVALID_ARGUMENT"; }
 conversation_id="$1"; relative_path="$2"; actor="$3"
 base_dir="${STORAGE_ROOT}/one_to_one/conversation_${conversation_id}"
-exec "${SCRIPT_DIR}/../files/file_delete.sh" "$base_dir" "$relative_path" "$actor" "chat"
+backup_dir="${BACKUPS_ROOT}/one-to-one"
+exec "${SCRIPT_DIR}/../files/file_delete.sh" "$base_dir" "$relative_path" "$actor" "chat" "$backup_dir"

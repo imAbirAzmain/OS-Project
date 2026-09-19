@@ -10,6 +10,9 @@ const {
   conversationMessages,
   appendConversationMessage,
   appendConversationFileMessage,
+  setConversationFileOwner,
+  getConversationFileOwner,
+  deleteConversationFileOwner,
 } = require('../services/fsStore');
 
 function getAuthorizedConversation(req, res) {
@@ -80,6 +83,7 @@ async function uploadFile(req, res) {
     return res.status(httpStatusForExitCode(result.exitCode)).json(result.data);
   }
 
+  setConversationFileOwner(conversation.id, result.data.FILE_NAME, req.user.username);
   appendConversationFileMessage(conversation.participants[0], conversation.participants[1], req.user.username, result.data);
   return res.status(201).json(result.data);
 }
@@ -126,11 +130,24 @@ async function viewFile(req, res) {
 async function deleteFile(req, res) {
   const conversation = getAuthorizedConversation(req, res);
   if (!conversation) return;
+
+  const filename = req.params.filename;
+  const sender = getConversationFileOwner(conversation.id, filename);
+  if (sender && sender !== req.user.username) {
+    return res.status(403).json({
+      status: 'FAILURE',
+      message: 'Only the sender who uploaded this file may delete it',
+    });
+  }
+
   const result = await runScript('ONE_TO_ONE_DELETE', [
     conversation.id,
-    req.params.filename,
+    filename,
     req.user.username,
   ]);
+  if (result.exitCode === 0) {
+    deleteConversationFileOwner(conversation.id, filename);
+  }
   return res.status(httpStatusForExitCode(result.exitCode)).json(result.data);
 }
 

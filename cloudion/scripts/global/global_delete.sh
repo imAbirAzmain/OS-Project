@@ -16,4 +16,5 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 [[ $# -ge 2 ]] || { echo "Usage: $(basename "$0") <relative_path> <actor>" >&2; exit "$EXIT_INVALID_ARGUMENT"; }
 relative_path="$1"; actor="$2"
 base_dir="${STORAGE_ROOT}/global"
-exec "${SCRIPT_DIR}/../files/file_delete.sh" "$base_dir" "$relative_path" "$actor" "file"
+backup_dir="${BACKUPS_ROOT}/global"
+exec "${SCRIPT_DIR}/../files/file_delete.sh" "$base_dir" "$relative_path" "$actor" "file" "$backup_dir"

@@ -7,4 +7,5 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 [[ $# -ge 2 ]] || { echo "Usage: $(basename "$0") <username> <relative_path>" >&2; exit "$EXIT_INVALID_ARGUMENT"; }
 username="$1"; relative_path="$2"
 base_dir="${STORAGE_ROOT}/users/${username}/files"
-exec "${SCRIPT_DIR}/../files/file_delete.sh" "$base_dir" "$relative_path" "$username" "file"
+backup_dir="${BACKUPS_ROOT}/${username}"
+exec "${SCRIPT_DIR}/../files/file_delete.sh" "$base_dir" "$relative_path" "$username" "file" "$backup_dir"

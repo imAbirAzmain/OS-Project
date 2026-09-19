@@ -5,6 +5,7 @@ const { sanitizeFilename } = require('../middleware/upload');
 const { sendInline } = require('../services/fileStream');
 const {
   createGroupRecord,
+  deleteGroupRecord,
   ensureGroupStorage,
   listGroupsForUser,
   getGroup,
@@ -14,6 +15,9 @@ const {
   getGroupMessages,
   addGroupMessage,
   addGroupFileMessage,
+  setGroupFileOwner,
+  getGroupFileOwner,
+  deleteGroupFileOwner,
   getUser,
 } = require('../services/fsStore');
 
@@ -70,6 +74,7 @@ async function deleteGroup(req, res) {
   if (result.exitCode !== 0) {
     return res.status(httpStatusForExitCode(result.exitCode)).json(result.data);
   }
+  deleteGroupRecord(group.id);
   return res.json({ status: 'SUCCESS', message: 'Group deleted' });
 }
 
@@ -132,6 +137,7 @@ async function uploadFile(req, res) {
     if (fs.existsSync(req.file.path)) fs.unlink(req.file.path, () => {});
     return res.status(httpStatusForExitCode(result.exitCode)).json(result.data);
   }
+  setGroupFileOwner(group.id, result.data.FILE_NAME, req.user.username);
   addGroupFileMessage(group.id, req.user.username, result.data);
   return res.status(201).json(result.data);
 }
@@ -175,9 +181,22 @@ async function viewFile(req, res) {
 }
 
 async function deleteFile(req, res) {
-  const group = getAuthorizedGroup(req, res, { requireAdmin: true });
+  const group = getAuthorizedGroup(req, res);
   if (!group) return;
-  const result = await runScript('GROUP_DELETE_FILE', [group.id, req.params.filename, req.user.username]);
+
+  const filename = req.params.filename;
+  const sender = getGroupFileOwner(group.id, filename);
+  if (sender && sender !== req.user.username) {
+    return res.status(403).json({
+      status: 'FAILURE',
+      message: 'Only the member who uploaded this file may delete it',
+    });
+  }
+
+  const result = await runScript('GROUP_DELETE_FILE', [group.id, filename, req.user.username]);
+  if (result.exitCode === 0) {
+    deleteGroupFileOwner(group.id, filename);
+  }
   return res.status(httpStatusForExitCode(result.exitCode)).json(result.data);
 }
 
