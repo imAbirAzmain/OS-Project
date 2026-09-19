@@ -596,7 +596,7 @@ Usage:
 AzTerm supports basic arithmetic, increment/decrement, and relational/comparison operations:
 - **Arithmetic**: `+`, `-`, `*`, `/`
 - **Increment / Decrement**: `++`, `--` (prefix or postfix, e.g. `x++`, `i--`)
-- **Relational / Comparison**: `>`, `<`, `>=`, `<=`, `==`
+- **Relational / Comparison**: `>`, `<`, `>=`, `<=`, `==`, `!=`
 
 #### Variable Assignment & Arithmetic
 ```bash
@@ -621,6 +621,12 @@ true
 
 az:~> calc 5 == 6
 false
+
+az:~> calc 5 != 6
+true
+
+az:~> 10 != 5
+true
 ```
 
 Error handling (division by zero):

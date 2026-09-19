@@ -60,7 +60,7 @@ command_help()
         "run|Execute a program|run PROGRAM [ARGS]"
         "print|Print text in quotes|print \"Abir XOSS\""
         "calc / math|Arithmetic (+,-,*,/) & ++/--|x = 5 + 3 or i++"
-        "compare|Relational (>,<,>=,<=,==)|x > 5 or a == b"
+        "compare|Relational (>,<,>=,<=,==,!=)|x > 5 or a != b"
         "if condition|Conditional branching|if x > 5 ... end if"
         "for loop|Loop over values|for i=1,2,3,4,5 ... end for"
         "while loop|Conditional loop|while i <= 5 ... end while"

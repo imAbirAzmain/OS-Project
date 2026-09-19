@@ -27,6 +27,10 @@ else
 print "a is smaller than b"
 end if
 
+if a != b
+print "a is not equal to b"
+end if
+
 for i=1,2,3,4,5
 print "Abir XOSS"
 end for

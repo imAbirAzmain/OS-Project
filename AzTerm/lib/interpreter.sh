@@ -7,7 +7,7 @@
 #   1. Variable management (az_set_var, az_get_var)
 #   2. print command (with strict double quotes and variable interpolation)
 #   3. Basic mathematical operations:
-#      +, -, *, /, ++, --, >, <, >=, <=, ==
+#      +, -, *, /, ++, --, >, <, >=, <=, ==, !=
 #   4. Variable assignments (x = 5 + 3, x = "val")
 #   5. Standalone calculation command (calc) & direct math
 #   6. Condition evaluation (for if and while statements)
@@ -175,7 +175,7 @@ command_print()
 
 ############################################################
 # Mathematical Expression Evaluator
-# Supports: +, -, *, /, ++, --, >, <, >=, <=, ==
+# Supports: +, -, *, /, ++, --, >, <, >=, <=, ==, !=
 ############################################################
 
 # Check for division by zero pattern in an expression
@@ -548,7 +548,7 @@ az_exec_single_line()
     fi
 
     # Check for direct calculation: 5 + 3 or 10 > 2
-    if [[ "$LINE" =~ ^[0-9]+[[:space:]]*(\+|\-|\*|\/|>|<|>=|<=|==)[[:space:]]* ]]; then
+    if [[ "$LINE" =~ ^[0-9]+[[:space:]]*(\+|\-|\*|\/|!=|==|>=|<=|>|<)[[:space:]]* ]]; then
         command_calc "$LINE"
         return $?
     fi
@@ -928,8 +928,8 @@ interpreter_dispatch()
         return 0 # Handled with error output
     fi
 
-    # 5. Direct standalone math: e.g. 5 + 3, 10 > 2, 5 == 5
-    if [[ "$USER_INPUT" =~ ^[0-9]+[[:space:]]*(\+|\-|\*|\/|>|<|>=|<=|==)[[:space:]]* ]]; then
+    # 5. Direct standalone math: e.g. 5 + 3, 10 > 2, 5 == 5, 10 != 5
+    if [[ "$USER_INPUT" =~ ^[0-9]+[[:space:]]*(\+|\-|\*|\/|!=|==|>=|<=|>|<)[[:space:]]* ]]; then
         command_calc "$USER_INPUT"
         return 0
     fi
